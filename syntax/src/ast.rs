@@ -28,10 +28,13 @@ impl File {
     }
 }
 
-/// A top-level item.
-#[derive(Debug, Clone, PartialEq, HeapSizeOf)]
-pub enum Item {
-    Function(Function),
+sum_type! {
+    /// A top-level item.
+    #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
+    pub enum Item {
+        Function,
+        u32,
+    }
 }
 
 /// A function definition.
@@ -43,14 +46,46 @@ pub struct Function {
     pub body: Vec<Statement>,
 }
 
+impl Function {
+    pub(crate) fn new(signature: FnDecl, body: Vec<Statement>, span: ByteSpan) -> Function {
+        Function {
+            span,
+            signature,
+            body,
+            node_id: NodeId::placeholder(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.signature.name.name
+    }
+}
+
 /// A function signature.
 #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
 pub struct FnDecl {
     pub span: ByteSpan,
     pub node_id: NodeId,
-    pub return_value: Option<Type>,
+    pub return_value: Type,
     pub name: Ident,
     pub args: Vec<Argument>,
+}
+
+impl FnDecl {
+    pub(crate) fn new(
+        name: Ident,
+        return_value: Type,
+        args: Vec<Argument>,
+        span: ByteSpan,
+    ) -> FnDecl {
+        FnDecl {
+            name,
+            return_value,
+            args,
+            span,
+            node_id: NodeId::placeholder(),
+        }
+    }
 }
 
 /// An identifier.
@@ -61,10 +96,26 @@ pub struct Ident {
     pub name: String,
 }
 
+impl Ident {
+    pub(crate) fn new(name: &str, span: ByteSpan) -> Ident {
+        Ident {
+            span,
+            name: name.into(),
+            node_id: NodeId::placeholder(),
+        }
+    }
+}
+
 /// A type.
 #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
 pub enum Type {
     Ident(Ident),
+}
+
+impl From<Ident> for Type {
+    fn from(other: Ident) -> Type {
+        Type::Ident(other)
+    }
 }
 
 /// A return statement.

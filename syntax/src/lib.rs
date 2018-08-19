@@ -12,3 +12,4 @@ mod node_id;
 mod parse;
 
 pub use self::node_id::NodeId;
+pub use self::parse::parse;

@@ -1,7 +1,7 @@
 use codespan::{ByteSpan, ByteIndex};
 use std::str::FromStr;
 use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
-                 Statement, Return};
+                 Statement, Return, Ident, Type};
 use crate::parse::bs;
 
 grammar;
@@ -11,7 +11,23 @@ pub File: File = {
 };
 
 pub Item: Item = {
+    <Function> => <>.into(),
+};
 
+Function: Function = {
+    <l:@L> <sig:FnDecl> "{" <stmts:Statement*> "}" <r:@R> => Function::new(sig, stmts, bs(l, r)),
+}
+
+pub FnDecl: FnDecl = {
+    <l:@L> <ret:Type> <name:Ident> "(" ")" <r:@R> => FnDecl::new(name, ret, Vec::new(), bs(l, r)),
+};
+
+Ident: Ident = {
+    <Spanned<r"[a-zA-Z_]+">> => Ident::new(<>.0, <>.1),
+};
+
+Type: Type = {
+    <Ident> => <>.into(),
 };
 
 pub Statement: Statement = {
@@ -19,8 +35,8 @@ pub Statement: Statement = {
 };
 
 ReturnStatement: Return = {
-    <l:@L> "return" <r:@R> => Return::bare(bs(l, r)),
-    <l:@L> "return" <e:Expression> <r:@R> => Return::value(e, bs(l, r)),
+    <l:@L> "return" ";" <r:@R> => Return::bare(bs(l, r)),
+    <l:@L> "return" <e:Expression> ";" <r:@R> => Return::value(e, bs(l, r)),
 };
 
 pub Expression: Expression = {
