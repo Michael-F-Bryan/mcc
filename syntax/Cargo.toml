@@ -1,0 +1,12 @@
+[package]
+name = "syntax"
+version = "0.1.0"
+authors = ["Michael Bryan <michaelfbryan@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+codespan = "0.1.2"
+failure = "0.1.2"
+
+[build-dependencies]
+lalrpop = "0.15.2"
