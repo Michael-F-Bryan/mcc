@@ -1,9 +1,25 @@
-use codespan::{ByteIndex, ByteSpan, FileMap};
+use codespan::{ByteIndex, ByteOffset, ByteSpan, FileMap};
 use crate::ast::File;
-use crate::grammar;
+use crate::grammar::FileParser;
+pub use crate::grammar::Token;
+use crate::node_id;
+use lalrpop_util::ParseError;
 
-pub fn parse(file: &FileMap) -> Result<File, ()> {
+pub fn parse(filemap: &FileMap) -> Result<File, ParseError<ByteIndex, Token<'_>, &str>> {
+    let base_offset = filemap.span().start() - ByteIndex(0);
+
+    let mut parsed = FileParser::new()
+        .parse(filemap.src())
+        .map_err(|e| e.map_location(|l| ByteIndex(l as u32) - base_offset))?;
+
+    fix_up(&mut parsed, base_offset);
+
     unimplemented!()
+}
+
+fn fix_up(file: &mut File, base_offset: ByteOffset) {
+    // TODO: Update all span locations
+    node_id::assign_node_ids(file);
 }
 
 pub(crate) fn bs(left: usize, right: usize) -> ByteSpan {

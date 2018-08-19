@@ -3,9 +3,10 @@ use crate::node_id::NodeId;
 use heapsize::HeapSizeOf;
 use heapsize_derive::HeapSizeOf;
 use std::any::Any;
+use std::fmt::Debug;
 use sum_type::*;
 
-pub trait AstNode: Any + HeapSizeOf {
+pub trait AstNode: Any + HeapSizeOf + Debug {
     fn span(&self) -> ByteSpan;
     fn node_id(&self) -> NodeId;
 }
@@ -215,6 +216,21 @@ sum_type! {
     }
 }
 
+/// Apply the same operation to each variant in an enum.
+macro_rules! defer {
+    ($type:ident, $this:expr; $( $variant:tt ),* => |$item:ident| $process_item:expr) => {{
+        use self::$type::*;
+
+        #[allow(unreachable_patterns)]
+        match $this {
+            $(
+                $variant(ref $item) => $process_item,
+            )*
+            _ => unreachable!(),
+        }
+    }};
+}
+
 macro_rules! impl_ast_node {
     ($type:ty) => {
         impl $crate::ast::AstNode for $type {
@@ -227,6 +243,18 @@ macro_rules! impl_ast_node {
             }
         }
     };
+
+    ($type:ident; $( $variant:ident ),+) => {
+        impl $crate::ast::AstNode for $type {
+            fn span(&self) -> ByteSpan {
+                defer!($type, self; $($variant),+ => |item| item.span())
+            }
+
+            fn node_id(&self) -> NodeId {
+                defer!($type, self; $($variant),+ => |item| item.node_id())
+            }
+        }
+    };
 }
 
 impl_ast_node!(Argument);
@@ -236,3 +264,8 @@ impl_ast_node!(Function);
 impl_ast_node!(Ident);
 impl_ast_node!(Literal);
 impl_ast_node!(Return);
+impl_ast_node!(BinaryOp);
+impl_ast_node!(Item; Function);
+impl_ast_node!(Statement; Return);
+impl_ast_node!(Expression; Literal, BinaryOp);
+impl_ast_node!(Type; Ident);
