@@ -1,10 +1,54 @@
+use codespan::{ByteSpan, ByteIndex};
 use std::str::FromStr;
+use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
+                 Statement, Return};
+use crate::parse::bs;
 
 grammar;
 
-pub Term: i32 = {
-    <n:Num> => n,
-    "(" <t:Term> ")" => t,
+pub File: File = {
+    <l:@L> <items:Item*> <r:@R> => File::new(items, bs(l, r)),
 };
 
-Num: i32 = <s:r"[0-9]+"> => i32::from_str(s).unwrap();
+pub Item: Item = {
+
+};
+
+pub Statement: Statement = {
+    ReturnStatement => <>.into(),
+};
+
+ReturnStatement: Return = {
+    <l:@L> "return" <r:@R> => Return::bare(bs(l, r)),
+    <l:@L> "return" <e:Expression> <r:@R> => Return::value(e, bs(l, r)),
+};
+
+pub Expression: Expression = {
+    Literal => <>.into(),
+};
+
+pub Literal: Literal = {
+    <Spanned<LiteralKind>> => Literal::new(<>.0, <>.1),
+};
+
+LiteralKind: LiteralKind = {
+    r"[0-9]+" => i64::from_str(<>).unwrap().into(),
+    r"[0-9]+\.[0-9]+" => f64::from_str(<>).unwrap().into(),
+    r#""([^"\\]|\\.)*""# => <>.to_string().into(),
+};
+
+Spanned<T>: (T, ByteSpan) = {
+    <l:@L> <thing:T> <r:@R> => (thing, bs(l, r)),
+};
+
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
+

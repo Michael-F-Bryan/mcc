@@ -18,6 +18,16 @@ pub struct File {
     pub items: Vec<Item>,
 }
 
+impl File {
+    pub(crate) fn new(items: Vec<Item>, span: ByteSpan) -> File {
+        File {
+            items,
+            span,
+            node_id: NodeId::placeholder(),
+        }
+    }
+}
+
 /// A top-level item.
 #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
 pub enum Item {
@@ -65,16 +75,56 @@ pub struct Return {
     pub value: Option<Expression>,
 }
 
-/// Any statement.
-#[derive(Debug, Clone, PartialEq, HeapSizeOf)]
-pub enum Statement {
-    Return,
+impl Return {
+    pub(crate) fn bare(span: ByteSpan) -> Return {
+        Return {
+            span,
+            node_id: NodeId::placeholder(),
+            value: None,
+        }
+    }
+
+    pub(crate) fn value(value: Expression, span: ByteSpan) -> Return {
+        Return {
+            span,
+            node_id: NodeId::placeholder(),
+            value: Some(value),
+        }
+    }
 }
 
-/// Any expression.
+sum_type! {
+    /// Any statement.
+    #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
+    pub enum Statement {
+        Return,
+        /// Dummy variant so we can use the `sum_type!()` macro.
+        u32,
+    }
+}
+
+sum_type! {
+    /// Any expression.
+    #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
+    pub enum Expression {
+        Literal,
+        BinaryOp,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, HeapSizeOf)]
-pub enum Expression {
-    Literal(Literal),
+pub struct BinaryOp {
+    pub span: ByteSpan,
+    pub node_id: NodeId,
+    pub left: Box<Expression>,
+    pub right: Box<Expression>,
+    pub kind: BinaryOperator,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, HeapSizeOf)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
 }
 
 /// A single function argument.
@@ -92,6 +142,16 @@ pub struct Literal {
     pub span: ByteSpan,
     pub node_id: NodeId,
     pub kind: LiteralKind,
+}
+
+impl Literal {
+    pub(crate) fn new(kind: LiteralKind, span: ByteSpan) -> Literal {
+        Literal {
+            kind,
+            span,
+            node_id: NodeId::placeholder(),
+        }
+    }
 }
 
 sum_type! {
