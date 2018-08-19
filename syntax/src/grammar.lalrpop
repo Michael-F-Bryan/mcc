@@ -1,4 +1,6 @@
-use codespan::{ByteSpan, ByteIndex};
+#![allow(dead_code, rust_2018_idioms, elided_lifetimes_in_paths)]
+
+use codespan::ByteSpan;
 use std::str::FromStr;
 use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};

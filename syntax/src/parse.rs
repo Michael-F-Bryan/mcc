@@ -17,7 +17,7 @@ pub fn parse(filemap: &FileMap) -> Result<File, ParseError<ByteIndex, Token<'_>,
     unimplemented!()
 }
 
-fn fix_up(file: &mut File, base_offset: ByteOffset) {
+fn fix_up(file: &mut File, _base_offset: ByteOffset) {
     // TODO: Update all span locations
     node_id::assign_node_ids(file);
 }

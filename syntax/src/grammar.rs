@@ -1,6 +1,7 @@
 // auto-generated: "lalrpop 0.15.2"
-// sha256: b3636d7ce59fbd4f35f5e355c7de15135da07249cdbcacceaa1e1cb63f1cfab
-use codespan::{ByteSpan, ByteIndex};
+// sha256: 1b4ba9140243c7269b735f922c31ac57f5bd5bbddd4acef42a28c3e73c68e
+#![allow(dead_code, rust_2018_idioms, elided_lifetimes_in_paths)]
+use codespan::ByteSpan;
 use std::str::FromStr;
 use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -12,7 +13,7 @@ extern crate lalrpop_util as __lalrpop_util;
 mod __parse__Expression {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -1218,7 +1219,7 @@ pub use self::__parse__Expression::ExpressionParser;
 mod __parse__File {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -2562,7 +2563,7 @@ pub use self::__parse__File::FileParser;
 mod __parse__FnDecl {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -3774,7 +3775,7 @@ pub use self::__parse__FnDecl::FnDeclParser;
 mod __parse__Item {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -5100,7 +5101,7 @@ pub use self::__parse__Item::ItemParser;
 mod __parse__Literal {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -6300,7 +6301,7 @@ pub use self::__parse__Literal::LiteralParser;
 mod __parse__Statement {
     #![allow(non_snake_case, non_camel_case_types, unused_mut, unused_variables, unused_imports, unused_parens)]
 
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
@@ -7534,7 +7535,7 @@ pub use self::__parse__Statement::StatementParser;
 #[cfg_attr(rustfmt, rustfmt_skip)]
 mod __intern_token {
     #![allow(unused_imports)]
-    use codespan::{ByteSpan, ByteIndex};
+    use codespan::ByteSpan;
     use std::str::FromStr;
     use crate::ast::{Item, File, Function, FnDecl, Literal, LiteralKind, Expression,
                  Statement, Return, Ident, Type};
