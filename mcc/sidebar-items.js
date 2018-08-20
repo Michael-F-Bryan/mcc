@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["translate","Translate from the AST to a more compiler-friendly form."]],"mod":[["hir","The High-level Intermediate Representation."]],"struct":[["Diagnostics","A collection of zero or more [`codespan_reporting::Diagnostic`] messages."]]});
