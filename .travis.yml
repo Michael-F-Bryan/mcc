@@ -3,7 +3,7 @@ cache: cargo
 rust: nightly
 
 env:
-- LLVM_VERSION="6.0"
+  - LLVM_VERSION="6.0"
 
 addons:
   apt:
@@ -25,8 +25,17 @@ addons:
 before_install:
   - export LLVM_VERSION_DASH=${LLVM_VERSION/./-}
   - export LLVM_VERSION_SHORT=${LLVM_VERSION/./}
-  - export PATH=/usr/lib/llvm-${LLVM_VERSION}/bin/:$HOME/.local/bin:$PATH
+  - export LLVM_DIR=/usr/lib/llvm-${LLVM_VERSION}/bin/
+  - export PATH=$LLVM_DIR:$HOME/.local/bin:$PATH
   - export LLVM_PATH=/usr/share/llvm-${LLVM_VERSION}/cmake/
+  - export | grep LLVM
+  - ls $LLVM_DIR
+  - ls $LLVM_PATH
+
+script:
+  - set -ex
+  - cargo build --all --verbose
+  - cargo test --all --verbose
 
 before_deploy:
   - cargo doc --all
@@ -47,6 +56,5 @@ env:
 
 after_success: |
   RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
-  cargo tarpaulin --ignore-tests --out Xml
-  bash <(curl -s https://codecov.io/bash)
+  cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
