@@ -7,10 +7,10 @@ use heapsize_derive::HeapSizeOf;
 /// As a special case, `NodeId(0)` is an invalid node ID. This allows it to
 /// be used as a placeholder.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, HeapSizeOf)]
-pub struct NodeId(usize);
+pub struct NodeId(u32);
 
 impl NodeId {
-    fn new(n: usize) -> NodeId {
+    fn new(n: u32) -> NodeId {
         NodeId(n)
     }
 
@@ -30,7 +30,7 @@ pub fn assign_node_ids(file: &mut File) {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct NodeIdGenerator {
-    last_id: usize,
+    last_id: u32,
 }
 
 impl NodeIdGenerator {

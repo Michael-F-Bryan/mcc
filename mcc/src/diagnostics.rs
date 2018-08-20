@@ -40,13 +40,16 @@ impl Diagnostics {
 fn diag_memory_usage(diag: &Diagnostic) -> usize {
     let &Diagnostic {
         severity: _,
+        ref code,
         ref message,
         ref labels,
     } = diag;
 
     mem::size_of::<Diagnostic>()
         + message.heap_size_of_children()
+        + code.heap_size_of_children()
         + labels.iter().map(label_memory_usage).sum::<usize>()
+        + labels.capacity() * mem::size_of::<Label>()
 }
 
 fn label_memory_usage(label: &Label) -> usize {
@@ -56,12 +59,13 @@ fn label_memory_usage(label: &Label) -> usize {
         style: _,
     } = label;
 
-    mem::size_of::<Label>() + message.heap_size_of_children()
+    message.heap_size_of_children()
 }
 
 impl HeapSizeOf for Diagnostics {
     fn heap_size_of_children(&self) -> usize {
-        self.diags.iter().map(diag_memory_usage).sum()
+        self.diags.iter().map(diag_memory_usage).sum::<usize>()
+            + self.diags.capacity() * mem::size_of::<Diagnostic>()
     }
 }
 

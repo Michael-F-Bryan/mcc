@@ -7,6 +7,8 @@ use lalrpop_util::ParseError;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Token<'input>(pub ByteIndex, pub &'input str);
 
+/// Parse the contents of a file into its *Abstract Syntax Tree*
+/// representation.
 pub fn parse(filemap: &FileMap) -> Result<File, ParseError<ByteIndex, Token<'_>, &str>> {
     let base_offset = filemap.span().start() - ByteIndex(0);
 

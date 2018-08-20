@@ -8,12 +8,12 @@ authors = ["Michael Bryan <michaelfbryan@gmail.com>"]
 build = "build.rs"
 
 [dependencies]
-codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "heapsize", features = ["memory_usage"] }
 lalrpop-util = "0.15.2"
 heapsize = "0.4.2"
 heapsize_derive = "0.1.4"
 sum_type = "0.1.0"
 regex = "1.0.2"
+codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "heapsize", features = ["memory_usage"] }
 
 [build-dependencies]
 lalrpop = "0.15.2"

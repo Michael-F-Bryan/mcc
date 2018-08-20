@@ -1,3 +1,5 @@
+//! The various types which make up `mcc`'s *Abstract Syntax Tree*.
+
 use codespan::ByteSpan;
 use crate::node_id::NodeId;
 use heapsize::HeapSizeOf;
@@ -235,6 +237,15 @@ sum_type! {
 ///
 /// defer!(Foo, foo; First, Second, Third => |item| println!("{:?}", item));
 /// // prints "Hello World"
+///
+/// // Expanding to roughly the following:
+/// #[allow(unreachable_patterns)]
+/// match foo {
+///     Foo::First(ref item) => println!("{:?}", item),
+///     Foo::Second(ref item) => println!("{:?}", item),
+///     Foo::Third(ref item) => println!("{:?}", item),
+///     _ => unreachable!(),
+/// }
 /// # }
 /// ```
 #[macro_export]
