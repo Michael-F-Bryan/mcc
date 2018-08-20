@@ -1,20 +1,23 @@
 use codespan::{ByteIndex, ByteOffset, ByteSpan, FileMap};
 use crate::ast::File;
 use crate::grammar::FileParser;
-pub use crate::grammar::Token;
 use crate::node_id;
 use lalrpop_util::ParseError;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Token<'input>(pub ByteIndex, pub &'input str);
 
 pub fn parse(filemap: &FileMap) -> Result<File, ParseError<ByteIndex, Token<'_>, &str>> {
     let base_offset = filemap.span().start() - ByteIndex(0);
 
-    let mut parsed = FileParser::new()
-        .parse(filemap.src())
-        .map_err(|e| e.map_location(|l| ByteIndex(l as u32) - base_offset))?;
+    let mut parsed = FileParser::new().parse(filemap.src()).map_err(|e| {
+        e.map_location(|l| ByteIndex(l as u32) - base_offset)
+            .map_token(|tok| Token(ByteIndex(tok.0 as u32) - base_offset, tok.1))
+    })?;
 
     fix_up(&mut parsed, base_offset);
 
-    unimplemented!()
+    Ok(parsed)
 }
 
 fn fix_up(file: &mut File, _base_offset: ByteOffset) {

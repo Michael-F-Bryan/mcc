@@ -217,6 +217,27 @@ sum_type! {
 }
 
 /// Apply the same operation to each variant in an enum.
+///
+/// # Examples
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate syntax;
+/// #[derive(Debug)]
+/// pub enum Foo {
+///     First(u32),
+///     Second(String),
+///     Third(Box<Foo>),
+/// }
+///
+/// # fn main() {
+/// let foo = Foo::Second("Hello World!".into());
+///
+/// defer!(Foo, foo; First, Second, Third => |item| println!("{:?}", item));
+/// // prints "Hello World"
+/// # }
+/// ```
+#[macro_export]
 macro_rules! defer {
     ($type:ident, $this:expr; $( $variant:tt ),* => |$item:ident| $process_item:expr) => {{
         use self::$type::*;

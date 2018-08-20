@@ -9,7 +9,6 @@ build = "build.rs"
 
 [dependencies]
 codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "heapsize", features = ["memory_usage"] }
-failure = "0.1.2"
 lalrpop-util = "0.15.2"
 heapsize = "0.4.2"
 heapsize_derive = "0.1.4"

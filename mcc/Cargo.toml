@@ -1,0 +1,16 @@
+cargo-features = ["edition"]
+
+[package]
+edition = '2018'
+name = "mcc"
+version = "0.1.0"
+authors = ["Michael Bryan <michaelfbryan@gmail.com>"]
+
+[dependencies]
+syntax = { path = "../syntax" }
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm6-0" }
+heapsize = "0.4.2"
+heapsize_derive = "0.1.4"
+codespan-reporting = "0.1.3"
+codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "heapsize", features = ["memory_usage"] }
+
