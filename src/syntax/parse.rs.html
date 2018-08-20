@@ -109,29 +109,33 @@
 <span id="109">109</span>
 <span id="110">110</span>
 <span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> <span class="ident">codespan</span>::{<span class="ident">ByteIndex</span>, <span class="ident">ByteOffset</span>, <span class="ident">ByteSpan</span>, <span class="ident">FileMap</span>};
+<span class="kw">use</span> <span class="ident">codespan_reporting</span>::<span class="ident">Diagnostic</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ast</span>::<span class="ident">File</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">grammar</span>::<span class="ident">FileParser</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">grammar</span>::{<span class="ident">FileParser</span>, <span class="ident">Token</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">node_id</span>;
 <span class="kw">use</span> <span class="ident">lalrpop_util</span>::<span class="ident">ParseError</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Token</span><span class="op">&lt;</span><span class="lifetime">&#39;input</span><span class="op">&gt;</span>(<span class="kw">pub</span> <span class="ident">ByteIndex</span>, <span class="kw">pub</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;input</span> <span class="ident">str</span>);
-
 <span class="doccomment">/// Parse the contents of a file into its *Abstract Syntax Tree*</span>
 <span class="doccomment">/// representation.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">filemap</span>: <span class="kw-2">&amp;</span><span class="ident">FileMap</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">File</span>, <span class="ident">ParseError</span><span class="op">&lt;</span><span class="ident">ByteIndex</span>, <span class="ident">Token</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">filemap</span>: <span class="kw-2">&amp;</span><span class="ident">FileMap</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">File</span>, <span class="ident">Diagnostic</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">base_offset</span> <span class="op">=</span> <span class="ident">filemap</span>.<span class="ident">span</span>().<span class="ident">start</span>() <span class="op">-</span> <span class="ident">ByteIndex</span>(<span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parsed</span> <span class="op">=</span> <span class="ident">FileParser</span>::<span class="ident">new</span>().<span class="ident">parse</span>(<span class="ident">filemap</span>.<span class="ident">src</span>()).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-        <span class="ident">e</span>.<span class="ident">map_location</span>(<span class="op">|</span><span class="ident">l</span><span class="op">|</span> <span class="ident">ByteIndex</span>(<span class="ident">l</span> <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">-</span> <span class="ident">base_offset</span>)
-            .<span class="ident">map_token</span>(<span class="op">|</span><span class="ident">tok</span><span class="op">|</span> <span class="ident">Token</span>(<span class="ident">ByteIndex</span>(<span class="ident">tok</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">-</span> <span class="ident">base_offset</span>, <span class="ident">tok</span>.<span class="number">1</span>))
-    })<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parsed</span> <span class="op">=</span> <span class="ident">FileParser</span>::<span class="ident">new</span>()
+        .<span class="ident">parse</span>(<span class="ident">filemap</span>.<span class="ident">src</span>())
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">map_location</span>(<span class="op">|</span><span class="ident">l</span><span class="op">|</span> <span class="ident">ByteIndex</span>(<span class="ident">l</span> <span class="kw">as</span> <span class="ident">u32</span>) <span class="op">-</span> <span class="ident">base_offset</span>))
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">translate_parse_error</span>(<span class="ident">filemap</span>, <span class="ident">e</span>))<span class="question-mark">?</span>;
 
     <span class="ident">fix_up</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">parsed</span>, <span class="ident">base_offset</span>);
 
     <span class="prelude-val">Ok</span>(<span class="ident">parsed</span>)
+}
+
+<span class="kw">fn</span> <span class="ident">translate_parse_error</span>(<span class="ident">map</span>: <span class="kw-2">&amp;</span><span class="ident">FileMap</span>, <span class="ident">err</span>: <span class="ident">ParseError</span><span class="op">&lt;</span><span class="ident">ByteIndex</span>, <span class="ident">Token</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>, <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="ident">Diagnostic</span> {
+    <span class="macro">unimplemented</span><span class="macro">!</span>()
 }
 
 <span class="kw">fn</span> <span class="ident">fix_up</span>(<span class="ident">file</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">File</span>, <span class="ident">_base_offset</span>: <span class="ident">ByteOffset</span>) {

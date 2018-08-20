@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Type",""]],"struct":[["CompilationUnit",""],["Function",""],["HirId",""]],"trait":[["HirNode",""]]});
+initSidebarItems({"enum":[["Type",""]],"struct":[["CompilationUnit",""],["Function",""],["HirId",""]],"trait":[["HirNode","Behaviour common to all HIR nodes."]]});

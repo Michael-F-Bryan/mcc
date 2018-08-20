@@ -301,6 +301,7 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
+<span id="304">304</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! The various types which make up `mcc`&#39;s *Abstract Syntax Tree*.</span>
 
@@ -312,6 +313,7 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Debug</span>;
 <span class="kw">use</span> <span class="ident">sum_type</span>::<span class="kw-2">*</span>;
 
+<span class="doccomment">/// Behaviour common to all AST nodes.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">AstNode</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">HeapSizeOf</span> <span class="op">+</span> <span class="ident">Debug</span> {
     <span class="kw">fn</span> <span class="ident">span</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">ByteSpan</span>;
     <span class="kw">fn</span> <span class="ident">node_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">NodeId</span>;
