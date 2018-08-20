@@ -1,0 +1,15 @@
+language: rust
+cache: cargo
+rust: nightly
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN
+  keep-history: true
+  on:
+    branch: master
+
+env:
+  global:
+    secure: svTCNx+2v02qcKVQ6zHnyb9vVy6ohtkOF7jEHD2DnWvIbtuwt9pA0fUiinWatohCsB0Ako2LgzVe2Sirwwcf8InwHIUsrLEKzpaevpEogbD81GzeyhoCeQVaE5wZZQXfBsFtPWkbIQ72poYX5xU3D/OlOkSrxP6WTNow1i6wIWJjdVVV24NB7N7e26hU2d3v0O5pR8t59CWef1AiLVweRjMJfKbK7uc6fiuYUU6YH2iBqRwtES+lbp69B49RaBATF619MgxClCiVxAe3nkvG4b2MqZgLhcFqRrxUsPiYhFYsZU68iD9MPvZ+6mv1m+cB6c7kgJyEougJdJ6+Re9bYeID5sxO3hAHNea2xo16vP7OQY+TrfrQ4yOGeehrTTBA+/mSLFyX2J8ecZkwOsCq+6Gu+Zs6YKRwxZ4sxU+7EdqQMqvIzUjDPXxHsOiSxe1+Ij8tuMMmTg6GOelR/etmEp1ZzC0TgbOUkuadYb7VvKxQEi6msRV/UapYr9UoHF5Fk0Nq+r4gRiWF6f8ZONMDGhmL3K9YWqG9EgEg2lkHIiIHbe+ncaViOVhQm265OGzBhk76SqVwSDW2O77FNUHnT0zcw3+NumhGqq0HM2xjm3C3/+P3jc1D/5KhmmG43doH8WYVTR2NLMk+iM+U2dmMnEVqUZFBMAAZFP6ncMc0DVA=
