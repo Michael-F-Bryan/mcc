@@ -1,25 +1,27 @@
 use codespan::{ByteIndex, ByteOffset, ByteSpan, FileMap};
+use codespan_reporting::Diagnostic;
 use crate::ast::File;
-use crate::grammar::FileParser;
+use crate::grammar::{FileParser, Token};
 use crate::node_id;
 use lalrpop_util::ParseError;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Token<'input>(pub ByteIndex, pub &'input str);
-
 /// Parse the contents of a file into its *Abstract Syntax Tree*
 /// representation.
-pub fn parse(filemap: &FileMap) -> Result<File, ParseError<ByteIndex, Token<'_>, &str>> {
+pub fn parse(filemap: &FileMap) -> Result<File, Diagnostic> {
     let base_offset = filemap.span().start() - ByteIndex(0);
 
-    let mut parsed = FileParser::new().parse(filemap.src()).map_err(|e| {
-        e.map_location(|l| ByteIndex(l as u32) - base_offset)
-            .map_token(|tok| Token(ByteIndex(tok.0 as u32) - base_offset, tok.1))
-    })?;
+    let mut parsed = FileParser::new()
+        .parse(filemap.src())
+        .map_err(|e| e.map_location(|l| ByteIndex(l as u32) - base_offset))
+        .map_err(|e| translate_parse_error(filemap, e))?;
 
     fix_up(&mut parsed, base_offset);
 
     Ok(parsed)
+}
+
+fn translate_parse_error(map: &FileMap, err: ParseError<ByteIndex, Token<'_>, &str>) -> Diagnostic {
+    unimplemented!()
 }
 
 fn fix_up(file: &mut File, _base_offset: ByteOffset) {

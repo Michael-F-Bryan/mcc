@@ -95,6 +95,7 @@ impl HirIdGenerator {
     }
 }
 
+/// Behaviour common to all HIR nodes.
 pub trait HirNode: Any + Debug + HeapSizeOf {
     fn node_id(&self) -> HirId;
 }

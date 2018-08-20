@@ -13,4 +13,4 @@ mod parse;
 pub mod visitor;
 
 pub use self::node_id::NodeId;
-pub use self::parse::{parse, Token};
+pub use self::parse::parse;

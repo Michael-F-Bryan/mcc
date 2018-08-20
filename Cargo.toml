@@ -1,2 +1,2 @@
 [workspace]
-members = ["syntax", "mcc"]
+members = ["syntax", "mcc", "mcc_driver"]

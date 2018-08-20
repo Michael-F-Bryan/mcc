@@ -1,7 +1,10 @@
 //! Diagnostic reporting.
 
+use codespan::CodeMap;
+use codespan_reporting::termcolor::WriteColor;
 use codespan_reporting::{Diagnostic, Label, Severity};
 use heapsize::HeapSizeOf;
+use std::io;
 use std::mem;
 
 /// A collection of zero or more [`codespan_reporting::Diagnostic`] messages.
@@ -34,6 +37,13 @@ impl Diagnostics {
 
     pub fn has_warnings(&self) -> bool {
         self.diagnostics_more_severe_than(Severity::Warning) > 0
+    }
+
+    pub fn emit<W>(&self, writer: W, codemap: &CodeMap) -> io::Result<()>
+    where
+        W: WriteColor,
+    {
+        unimplemented!()
     }
 }
 

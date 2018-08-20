@@ -8,6 +8,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use sum_type::*;
 
+/// Behaviour common to all AST nodes.
 pub trait AstNode: Any + HeapSizeOf + Debug {
     fn span(&self) -> ByteSpan;
     fn node_id(&self) -> NodeId;
