@@ -27,8 +27,6 @@ before_install:
   - export PATH=$LLVM_DIR:$HOME/.local/bin:$PATH
   - export LLVM_PATH=/usr/share/llvm-${LLVM_VERSION}/cmake/
   - export | grep LLVM
-  - ls $LLVM_DIR
-  - ls $LLVM_PATH
 
 script:
   - set -ex
