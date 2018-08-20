@@ -2,11 +2,16 @@ language: rust
 cache: cargo
 rust: nightly
 
+before_deploy:
+  - cargo doc --all
+  - echo '<head><meta http-equiv="refresh" content="0; URL=mcc/index.html" /></head>' > target/doc/index.html
+
 deploy:
   provider: pages
   skip-cleanup: true
   github-token: $GITHUB_TOKEN
   keep-history: true
+  local-dir: target/doc
   on:
     branch: master
 
