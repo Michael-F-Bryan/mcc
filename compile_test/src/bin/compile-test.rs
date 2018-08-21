@@ -3,29 +3,13 @@ extern crate slog;
 
 use slog::{Drain, Level, Logger};
 use std::path::PathBuf;
-use std::process;
 use structopt::StructOpt;
 
-fn main() {
+fn main() -> Result<(), String> {
     let args = Args::from_args();
     let logger = initialize_logging(args.verbosity);
 
-    if let Err(e) = compile_test::run(&args.fixture_dir, &logger) {
-        error!(logger, "Testing Failed";
-               "error" => e.to_string());
-
-        for cause in e.iter_causes() {
-            warn!(logger, "Caused By"; "cause" => cause.to_string());
-        }
-
-        drop(logger);
-        let bt = e.backtrace().to_string();
-        if !bt.is_empty() {
-            eprintln!("{}", bt);
-        }
-
-        process::exit(1);
-    }
+    compile_test::run(&args.fixture_dir, &logger).map_err(|e| e.to_string())
 }
 
 fn initialize_logging(verbosity: u64) -> Logger {

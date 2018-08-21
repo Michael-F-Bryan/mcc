@@ -1,9 +1,9 @@
-use codespan::{CodeMap, FileMap};
+use codespan::CodeMap;
 use codespan_reporting::Diagnostic;
 use crate::{Outcome, TestCase};
 use failure::{Error, ResultExt};
 use serde_json;
-use std::fs::{self, File};
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use syntax;
 
@@ -69,5 +69,9 @@ impl TestCase for ParseFail {
 
     fn name(&self) -> &str {
         self.test_fixture.file_stem().unwrap().to_str().unwrap()
+    }
+
+    fn category(&self) -> &str {
+        "parse-fail"
     }
 }
