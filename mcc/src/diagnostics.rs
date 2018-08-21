@@ -4,11 +4,12 @@ use codespan::CodeMap;
 use codespan_reporting::termcolor::WriteColor;
 use codespan_reporting::{Diagnostic, Label, Severity};
 use heapsize::HeapSizeOf;
+use serde_derive::{Deserialize, Serialize};
 use std::io;
 use std::mem;
 
 /// A collection of zero or more [`codespan_reporting::Diagnostic`] messages.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Diagnostics {
     diags: Vec<Diagnostic>,
 }

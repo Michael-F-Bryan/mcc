@@ -9,8 +9,8 @@ authors = ["Michael Bryan <michaelfbryan@gmail.com>"]
 [dependencies]
 mcc = { path = "../mcc" }
 syntax = { path = "../syntax" }
-codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "heapsize", features = ["memory_usage"] }
-codespan-reporting = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "heapsize", features = ["memory_usage"] }
+codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "more-serde", features = ["memory_usage", "serialization"] }
+codespan-reporting = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "more-serde", features = ["memory_usage", "serialization"] }
 heapsize = "0.4.2"
 heapsize_derive = "0.1.4"
 slog = "2.3.2"

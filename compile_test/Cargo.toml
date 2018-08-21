@@ -2,22 +2,22 @@ cargo-features = ["edition"]
 
 [package]
 edition = '2018'
-name = "syntax"
+name = "compile_test"
 version = "0.1.0"
 authors = ["Michael Bryan <michaelfbryan@gmail.com>"]
-build = "build.rs"
 
 [dependencies]
-lalrpop-util = "0.15.2"
-heapsize = "0.4.2"
-heapsize_derive = "0.1.4"
-sum_type = "0.1.0"
-regex = "1.0.2"
+syntax = { path = "../syntax" }
+mcc = { path = "../mcc" }
+mcc_driver = { path = "../mcc_driver" }
+failure = "0.1.2"
+serde = "1.0.72"
+serde_json = "1.0.26"
+slog = "2.3.2"
 codespan = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "more-serde", features = ["memory_usage", "serialization"] }
 codespan-reporting = { git = "https://github.com/Michael-F-Bryan/codespan", branch = "more-serde", features = ["memory_usage", "serialization"] }
+glob = "0.2.11"
+slog-async = "2.3.0"
+slog-term = "2.4.0"
+structopt = "0.2.10"
 
-[build-dependencies]
-lalrpop = "0.15.2"
-
-[dev-dependencies]
-pretty_assertions = "0.5.1"

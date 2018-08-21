@@ -1,5 +1,5 @@
 use codespan::{ByteIndex, ByteOffset, ByteSpan, FileMap};
-use codespan_reporting::Diagnostic;
+use codespan_reporting::{Diagnostic, Label};
 use crate::ast::File;
 use crate::grammar::{FileParser, Token};
 use crate::node_id;
@@ -20,8 +20,60 @@ pub fn parse(filemap: &FileMap) -> Result<File, Diagnostic> {
     Ok(parsed)
 }
 
-fn translate_parse_error(map: &FileMap, err: ParseError<ByteIndex, Token<'_>, &str>) -> Diagnostic {
-    unimplemented!()
+fn translate_parse_error(
+    filemap: &FileMap,
+    err: ParseError<ByteIndex, Token<'_>, &str>,
+) -> Diagnostic {
+    let base_offset = filemap.span().start() - ByteIndex(0);
+
+    match err {
+        ParseError::InvalidToken { location } => {
+            let loc = location - base_offset;
+            let span = ByteSpan::new(loc, loc + ByteOffset(1));
+
+            if filemap.span().contains(span) {
+                Diagnostic::new_error("Invalid Token").with_label(Label::new_primary(span))
+            } else {
+                Diagnostic::new_error("Unexpected end of input")
+            }
+        }
+        ParseError::UnrecognizedToken {
+            token: None,
+            expected,
+        } => {
+            let msg = if expected.is_empty() {
+                "Unrecognised token".to_string()
+            } else if expected.len() == 1 {
+                format!("Expected {}", expected[0])
+            } else {
+                format!("Expected one of {}", expected.join("or"))
+            };
+
+            Diagnostic::new_error(msg)
+        }
+        ParseError::UnrecognizedToken {
+            token: Some((start, tok, end)),
+            expected,
+        } => {
+            let span = ByteSpan::new(start, end);
+            let mut label = Label::new_primary(span);
+
+            if expected.len() == 1 {
+                label = label.with_message(format!("Expected {}", expected[0]));
+            } else if expected.len() > 1 {
+                label = label.with_message(format!("Expected one of {}", expected.join("or")));
+            }
+
+            Diagnostic::new_error(format!("Unrecognised token, {}", tok)).with_label(label)
+        }
+        ParseError::ExtraToken {
+            token: (start, tok, end),
+        } => {
+            let span = ByteSpan::new(start, end);
+            Diagnostic::new_error("Extra token").with_label(Label::new_primary(span))
+        }
+        ParseError::User { error } => Diagnostic::new_error(error),
+    }
 }
 
 fn fix_up(file: &mut File, _base_offset: ByteOffset) {
