@@ -1,13 +1,13 @@
 #[macro_use]
 extern crate slog;
 
+pub mod cmd;
 mod parse_fail;
 mod run_pass;
 mod runner;
 
 pub use crate::parse_fail::ParseFail;
 pub use crate::run_pass::RunPass;
-pub use crate::runner::run;
 
 use failure::Error;
 use std::panic::RefUnwindSafe;

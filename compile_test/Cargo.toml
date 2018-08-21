@@ -21,3 +21,7 @@ slog-async = "2.3.0"
 slog-term = "2.4.0"
 structopt = "0.2.10"
 
+[[test]]
+name = "compile-test"
+path = "tests/main.rs"
+harness = false
