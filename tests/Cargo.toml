@@ -12,9 +12,10 @@ version.workspace = true
 [dependencies]
 walkdir = "2.4"
 libtest-mimic = "0.8"
-mcc = { version = "0.0.0", path = "../crates/mcc" }
+mcc-driver = { version = "0.0.0", path = "../crates/mcc-driver" }
 anyhow = "1.0.98"
 tempfile = "3.20.0"
+mcc = { version = "0.0.0", path = "../crates/mcc" }
 
 [[test]]
 name = "integration"

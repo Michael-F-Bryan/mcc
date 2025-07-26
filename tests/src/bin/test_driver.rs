@@ -1,3 +1,3 @@
 fn main() -> anyhow::Result<()> {
-    mcc::main()
+    mcc_driver::main()
 }

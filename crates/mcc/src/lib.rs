@@ -1,52 +1,32 @@
-pub mod compile;
+mod assembling;
+mod cmd;
+mod compiling;
+pub mod diagnostics;
+mod parsing;
+mod preprocessing;
+mod text;
+pub mod types;
 
-use crate::compile::Compile;
+pub use crate::{
+    assembling::{AssemblyInput, assemble_and_link},
+    cmd::CommandError,
+    compiling::compile,
+    parsing::parse,
+    preprocessing::preprocess,
+    text::Text,
+};
 
-use clap::Parser;
-use tracing_subscriber::EnvFilter;
+#[salsa::db]
+pub trait Db: salsa::Database {}
 
-const LOG_FILTERS: &[&str] = &["warn", "mcc=debug"];
+#[salsa::db]
+impl<T: salsa::Database> Db for T {}
 
-pub fn main() -> anyhow::Result<()> {
-    let cli = App::parse();
-
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| LOG_FILTERS.join(",").parse().unwrap());
-
-    tracing_subscriber::fmt().with_env_filter(env_filter).init();
-
-    match cli.into_command() {
-        Command::Compile(compile) => compile.run(),
-    }
+#[salsa::db]
+#[derive(Default, Clone)]
+pub struct Database {
+    storage: salsa::Storage<Self>,
 }
 
-/// The main command line interface for the mcc compiler.
-#[derive(Debug, Parser)]
-#[clap(version, about, author)]
-struct App {
-    #[command(subcommand)]
-    command: Option<Command>,
-    #[command(flatten)]
-    compile: Option<Compile>,
-}
-
-impl App {
-    fn into_command(self) -> Command {
-        match self {
-            App {
-                command: Some(command),
-                compile: None,
-            } => command,
-            App {
-                command: None,
-                compile: Some(compile),
-            } => Command::Compile(compile),
-            _ => unreachable!(),
-        }
-    }
-}
-
-#[derive(Debug, Parser)]
-enum Command {
-    Compile(Compile),
-}
+#[salsa::db]
+impl salsa::Database for Database {}

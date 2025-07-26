@@ -6,6 +6,10 @@ use std::{
 
 use anyhow::Error;
 use libtest_mimic::{Failed, Trial};
+use mcc::{
+    diagnostics::Diagnostic,
+    types::{PreprocessorInput, SourceFile},
+};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -79,49 +83,51 @@ impl TestCase {
         let name = path.file_stem().unwrap().to_str().unwrap();
 
         Trial::test(format!("chapter_{chapter}::{kind}::{name}"), move || {
+            let db = mcc::Database::default();
+
             let temp = tempfile::tempdir()?;
-            let preprocessed = temp.path().join("preprocessed.c");
+            let src = std::fs::read_to_string(&path)?;
             let kind_str = kind.invalid_reason();
 
-            if let Err(e) = mcc::compile::preprocess("cc", &path, &preprocessed) {
-                if let Some("lex" | "parse") = kind_str {
+            let preprocessed = mcc::preprocess(
+                &db,
+                PreprocessorInput::new(
+                    &db,
+                    cc.clone(),
+                    SourceFile::new(&db, path.clone(), src.into()),
+                ),
+            )
+            .unwrap();
+
+            let source_file = SourceFile::new(&db, path, preprocessed);
+            let ast = mcc::parse(&db, source_file);
+            let diags = mcc::parse::accumulated::<Diagnostic>(&db, source_file);
+
+            match (diags.as_slice(), kind_str) {
+                ([_, ..], Some("lex" | "parse")) => {
                     // Expected error
                     return Ok(());
-                } else {
-                    return Err(Failed::from(e));
+                }
+                ([], _) => {
+                    // No errors
+                }
+                _ => {
+                    return Err(Failed::from(format!(
+                        "expected no errors, but got {diags:#?}"
+                    )));
                 }
             }
 
-            let ast = match mcc::compile::parse(&preprocessed) {
-                Ok(ast) => ast,
-                Err(e) => {
-                    if let Some("codegen") = kind_str {
-                        // Expected error
-                        return Ok(());
-                    } else {
-                        return Err(Failed::from(e));
-                    }
-                }
-            };
-
-            let assembly = match mcc::compile::compile(ast) {
-                Ok(assembly) => assembly,
-                Err(e) => {
-                    if let Some("codegen") = kind_str {
-                        // Expected error
-                        return Ok(());
-                    } else {
-                        return Err(Failed::from(e));
-                    }
-                }
-            };
+            let assembly = mcc::compile(&db, ast);
 
             let asm = temp.path().join("assembly.s");
             std::fs::write(&asm, assembly)?;
 
             let object_code = temp.path().join("object_code.o");
 
-            if let Err(e) = mcc::compile::assemble_and_link(&cc, &asm, &object_code) {
+            let assembly_input = mcc::AssemblyInput::new(&db, cc.clone(), asm, object_code.clone());
+
+            if let Err(e) = mcc::assemble_and_link(&db, assembly_input) {
                 if let Some("codegen") = kind_str {
                     // Expected error
                     return Ok(());
@@ -129,6 +135,12 @@ impl TestCase {
                     return Err(Failed::from(e));
                 }
             };
+
+            if let Kind::Invalid(reason) = kind {
+                return Err(Failed::from(format!(
+                    "expected error at {reason}, but compilation succeeded"
+                )));
+            }
 
             Ok(())
         })

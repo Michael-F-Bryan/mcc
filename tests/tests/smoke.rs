@@ -5,7 +5,7 @@ use std::{
 
 #[test]
 fn run_test_compiler() {
-    let compiler_driver = PathBuf::from(env!("CARGO_BIN_EXE_mcc_driver"));
+    let compiler_driver = PathBuf::from(env!("CARGO_BIN_EXE_test_driver"));
     let test_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("writing-a-c-compiler-tests");
 
     let mut cmd = Command::new(test_root.join("test_compiler"));

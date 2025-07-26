@@ -1,0 +1,29 @@
+[package]
+name = "mcc-driver"
+description = "The mcc compiler driver"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.41", features = ["derive", "env"] }
+clap-verbosity-flag = { version = "3.0.3", default-features = false, features = ["tracing"] }
+mcc = { version = "0.0.0", path = "../mcc" }
+tempfile = "3.20.0"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
+tree-sitter = "0.25.8"
+tree-sitter-c = "0.24.1"
+
+[[bin]]
+name = "mcc"
+path = "src/bin/mcc.rs"
+doc = false
