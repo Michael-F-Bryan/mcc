@@ -121,9 +121,7 @@ impl TestCase {
 
             let object_code = temp.path().join("object_code.o");
 
-            let assembly_input = mcc::AssemblyInput::new(&db, cc.clone(), asm, object_code.clone());
-
-            if let Err(e) = mcc::assemble_and_link(&db, assembly_input) {
+            if let Err(e) = mcc::assemble_and_link(&db, cc.clone(), asm, object_code.clone()) {
                 if let Some("codegen") = kind_str {
                     // Expected error
                     return Ok(());

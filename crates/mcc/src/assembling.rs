@@ -4,22 +4,16 @@ use crate::{CommandError, Db};
 
 /// Turn an assembly file into object code.
 #[salsa::tracked]
-pub fn assemble_and_link(db: &dyn Db, input: AssemblyInput) -> Result<(), CommandError> {
-    let cc = input.cc(db);
-    let assembly = input.assembly(db);
-    let dest = input.dest(db);
-
+pub fn assemble_and_link(
+    _db: &dyn Db,
+    cc: OsString,
+    assembly: PathBuf,
+    dest: PathBuf,
+) -> Result<(), CommandError> {
     let mut cmd = Command::new(cc);
     cmd.arg("-c").arg(assembly).arg("-o").arg(dest);
 
     crate::cmd::run_cmd(&mut cmd)?;
 
     Ok(())
-}
-
-#[salsa::input]
-pub struct AssemblyInput {
-    cc: OsString,
-    assembly: PathBuf,
-    dest: PathBuf,
 }

@@ -9,13 +9,8 @@ mod text;
 pub mod types;
 
 pub use crate::{
-    assembling::{AssemblyInput, assemble_and_link},
-    cmd::CommandError,
-    compiling::compile,
-    files::Files,
-    parsing::parse,
-    preprocessing::preprocess,
-    text::Text,
+    assembling::assemble_and_link, cmd::CommandError, compiling::compile, files::Files,
+    parsing::parse, preprocessing::preprocess, text::Text,
 };
 
 #[salsa::db]

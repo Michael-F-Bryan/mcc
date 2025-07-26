@@ -84,10 +84,11 @@ impl Cli {
             return Ok(());
         }
 
-        let output = self.output.unwrap_or_else(|| self.input.with_extension(""));
+        let output = self
+            .output
+            .unwrap_or_else(|| self.input.with_extension("o"));
 
-        let assembly_input = mcc::AssemblyInput::new(&db, self.cc.clone(), asm, output.clone());
-        let _assembled = mcc::assemble_and_link(&db, assembly_input);
+        mcc::assemble_and_link(&db, self.cc.clone(), asm, output.clone())?;
 
         #[cfg(unix)]
         {
