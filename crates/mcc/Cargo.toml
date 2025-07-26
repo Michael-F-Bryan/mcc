@@ -16,5 +16,6 @@ version.workspace = true
 anyhow = "1.0.98"
 clap = { version = "4.5.41", features = ["derive", "env"] }
 clap-verbosity-flag = { version = "3.0.3", default-features = false, features = ["tracing"] }
+tempfile = "3.20.0"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }

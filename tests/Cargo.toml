@@ -1,0 +1,22 @@
+[package]
+name = "tests"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+walkdir = "2.4"
+libtest-mimic = "0.8"
+mcc = { version = "0.0.0", path = "../crates/mcc" }
+anyhow = "1.0.98"
+tempfile = "3.20.0"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+harness = false
