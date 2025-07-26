@@ -1,4 +1,4 @@
-use std::{ffi::OsString, ops::Deref};
+use std::ops::Deref;
 
 use crate::{Db, Text};
 
@@ -19,8 +19,73 @@ pub struct Ast<'db> {
 #[salsa::tracked]
 impl<'db> Ast<'db> {
     pub fn sexpr(&self, db: &'db dyn Db) -> String {
-        self.tree(db).root_node().to_sexp()
+        let raw = self.tree(db).root_node().to_sexp();
+        format_sexpr(&raw)
     }
+}
+
+/// A quick'n'dirty s-expression pretty-printer.
+fn format_sexpr(raw: &str) -> String {
+    let mut result = String::new();
+    let mut depth = 0;
+    let mut in_word = false;
+    let mut after_colon = false;
+    let mut field_start = 0;
+
+    for (i, c) in raw.chars().enumerate() {
+        match c {
+            '(' => {
+                if in_word {
+                    result.push(' ');
+                    in_word = false;
+                }
+                if !after_colon {
+                    result.push('\n');
+                    result.extend(std::iter::repeat("  ").take(depth));
+                } else {
+                    // After a field, indent to align with the content
+                    let field_length = i - field_start;
+                    result.push('\n');
+                    result.extend(std::iter::repeat("  ").take(depth));
+                    result.extend(std::iter::repeat(" ").take(field_length));
+                }
+                result.push('(');
+                depth += 1;
+                after_colon = false;
+            }
+            ')' => {
+                depth -= 1;
+                result.push(')');
+                in_word = false;
+                after_colon = false;
+            }
+            ' ' | '\n' => {
+                if in_word {
+                    result.push(' ');
+                    in_word = false;
+                }
+            }
+            ':' => {
+                result.push(c);
+                after_colon = true;
+                in_word = true;
+                field_start = i + 1; // Start of the field name
+            }
+            _ => {
+                if !in_word && !result.ends_with('(') && !after_colon {
+                    result.push('\n');
+                    result.extend(std::iter::repeat("  ").take(depth));
+                }
+                result.push(c);
+                in_word = true;
+                if c != ' ' && c != '\n' {
+                    after_colon = false;
+                }
+            }
+        }
+    }
+
+    result
 }
 
 #[derive(Debug, Clone)]

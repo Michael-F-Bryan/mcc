@@ -96,6 +96,7 @@ impl TestCase {
 
             let source_file = SourceFile::new(&db, path, preprocessed);
             let ast = mcc::parse(&db, source_file);
+            eprintln!("{}", ast.sexpr(&db));
             let diags = mcc::parse::accumulated::<Diagnostic>(&db, source_file);
 
             match (diags.as_slice(), kind_str) {

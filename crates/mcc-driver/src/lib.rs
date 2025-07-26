@@ -66,6 +66,8 @@ impl Cli {
             anyhow::bail!("Compilation failed");
         }
 
+        eprintln!("{}", ast.sexpr(&db));
+
         if self.stop_at.lex || self.stop_at.parse {
             return Ok(());
         }
