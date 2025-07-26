@@ -1,11 +1,10 @@
-use miette::SourceSpan;
 use salsa::Accumulator;
 use tree_sitter::{Language, Node};
 
 use crate::{
     Db,
     diagnostics::{Diagnostic, ParseError},
-    types::{Ast, SourceFile, Tree},
+    types::{Ast, SourceFile, Span, Tree},
 };
 
 /// Parse a C program into an abstract syntax tree.
@@ -18,7 +17,7 @@ pub fn parse(db: &dyn Db, file: SourceFile) -> Ast<'_> {
     parser.set_language(&lang).unwrap();
 
     let src = file.contents(db);
-    let tree = Tree::from(parser.parse(&src, None).unwrap());
+    let tree = Tree::from(parser.parse(src, None).unwrap());
 
     check_tree(db, &tree, file);
 
@@ -46,26 +45,26 @@ fn check_tree(db: &dyn Db, tree: &Tree, file: SourceFile) {
     }
 }
 
-fn check_node(db: &dyn Db, node: Node<'_>, src: SourceFile) -> Continuation {
+fn check_node(db: &dyn Db, node: Node<'_>, file: SourceFile) -> Continuation {
     if !node.has_error() {
         Continuation::Skip
     } else if node.is_missing() {
         let range = node.byte_range();
-        let err_span = SourceSpan::new(range.start.into(), range.end - range.start);
+        let err_span = Span::new(range.start, range.end - range.start);
 
         let error = ParseError {
-            src: src.named_source(db),
+            file,
             msg: format!("Expected a \"{}\"", node.parent().unwrap().grammar_name(),).into(),
             span: err_span,
         };
         Continuation::Emit(error.into())
     } else if node.is_error() {
         let range = node.byte_range();
-        let err_span = SourceSpan::new(range.start.into(), range.end - range.start);
-        let token = node.utf8_text(src.contents(db).as_ref()).unwrap();
+        let err_span = Span::new(range.start, range.end - range.start);
+        let token = node.utf8_text(file.contents(db).as_ref()).unwrap();
 
         let error = ParseError {
-            src: src.named_source(db),
+            file,
             msg: format!(
                 "Expected a \"{}\", but found \"{}\"",
                 node.parent().unwrap().grammar_name(),

@@ -9,19 +9,19 @@ readme.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+default-run = "mcc"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.98"
 clap = { version = "4.5.41", features = ["derive", "env"] }
-clap-verbosity-flag = { version = "3.0.3", default-features = false, features = ["tracing"] }
+codespan-reporting = "0.12.0"
+colorchoice-clap = "1.0.7"
 mcc = { version = "0.0.0", path = "../mcc" }
 tempfile = "3.20.0"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
-tree-sitter = "0.25.8"
-tree-sitter-c = "0.24.1"
 
 [[bin]]
 name = "mcc"

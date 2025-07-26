@@ -6,10 +6,7 @@ use std::{
 
 use anyhow::Error;
 use libtest_mimic::{Failed, Trial};
-use mcc::{
-    diagnostics::Diagnostic,
-    types::{PreprocessorInput, SourceFile},
-};
+use mcc::{Text, diagnostics::Diagnostic, types::SourceFile};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -87,15 +84,13 @@ impl TestCase {
 
             let temp = tempfile::tempdir()?;
             let src = std::fs::read_to_string(&path)?;
+            let path = Text::from(path.display().to_string());
             let kind_str = kind.invalid_reason();
 
             let preprocessed = mcc::preprocess(
                 &db,
-                PreprocessorInput::new(
-                    &db,
-                    cc.clone(),
-                    SourceFile::new(&db, path.clone(), src.into()),
-                ),
+                cc.clone(),
+                SourceFile::new(&db, path.clone(), src.into()),
             )
             .unwrap();
 
@@ -167,7 +162,7 @@ impl Display for Kind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Kind::Valid => write!(f, "valid"),
-            Kind::Invalid(reason) => write!(f, "invalid_{}", reason),
+            Kind::Invalid(reason) => write!(f, "invalid_{reason}"),
         }
     }
 }

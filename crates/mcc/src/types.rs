@@ -1,37 +1,26 @@
-use std::{ffi::OsString, ops::Deref, path::PathBuf};
-
-use miette::NamedSource;
+use std::{ffi::OsString, ops::Deref};
 
 use crate::{Db, Text};
-
-#[salsa::input]
-pub struct PreprocessorInput {
-    pub cc: OsString,
-    #[returns(ref)]
-    pub src: SourceFile,
-}
 
 #[salsa::input]
 #[derive(Debug)]
 pub struct SourceFile {
     #[returns(ref)]
-    pub path: PathBuf,
+    pub path: Text,
     #[returns(ref)]
     pub contents: Text,
-}
-
-impl SourceFile {
-    pub fn named_source(self, db: &dyn Db) -> NamedSource<Text> {
-        NamedSource::new(
-            self.path(db).display().to_string(),
-            self.contents(db).clone(),
-        )
-    }
 }
 
 #[salsa::tracked]
 pub struct Ast<'db> {
     pub tree: Tree,
+}
+
+#[salsa::tracked]
+impl<'db> Ast<'db> {
+    pub fn sexpr(&self, db: &'db dyn Db) -> String {
+        self.tree(db).root_node().to_sexp()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -61,5 +50,51 @@ impl Eq for Tree {}
 impl std::hash::Hash for Tree {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.0.root_node().hash(state);
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Span {
+    pub start: usize,
+    pub length: usize,
+}
+
+impl Span {
+    pub const fn new(start: usize, length: usize) -> Self {
+        Span { start, length }
+    }
+
+    pub const fn end(&self) -> usize {
+        self.start + self.length
+    }
+
+    pub fn for_node(node: tree_sitter::Node<'_>) -> Self {
+        node.range().into()
+    }
+
+    pub const fn to_range(self) -> std::ops::Range<usize> {
+        self.start..self.end()
+    }
+
+    pub fn lookup(self, text: &str) -> &str {
+        &text[self.to_range()]
+    }
+}
+
+impl From<tree_sitter::Range> for Span {
+    fn from(range: tree_sitter::Range) -> Self {
+        Span::new(range.start_byte, range.end_byte - range.start_byte)
+    }
+}
+
+impl From<std::ops::Range<usize>> for Span {
+    fn from(value: std::ops::Range<usize>) -> Self {
+        Span::new(value.start, value.len())
+    }
+}
+
+impl From<Span> for std::ops::Range<usize> {
+    fn from(value: Span) -> Self {
+        value.to_range()
     }
 }

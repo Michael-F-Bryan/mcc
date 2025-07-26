@@ -1,7 +1,5 @@
 use std::{borrow::Cow, sync::Arc};
 
-use miette::SourceCode;
-
 /// A reference-counted string.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Text(Arc<str>);
@@ -58,17 +56,5 @@ impl std::ops::Deref for Text {
 impl std::borrow::Borrow<str> for Text {
     fn borrow(&self) -> &str {
         &self.0
-    }
-}
-
-impl SourceCode for Text {
-    fn read_span<'a>(
-        &'a self,
-        span: &miette::SourceSpan,
-        context_lines_before: usize,
-        context_lines_after: usize,
-    ) -> Result<Box<dyn miette::SpanContents<'a> + 'a>, miette::MietteError> {
-        self.as_str()
-            .read_span(span, context_lines_before, context_lines_after)
     }
 }

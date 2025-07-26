@@ -2,6 +2,7 @@ mod assembling;
 mod cmd;
 mod compiling;
 pub mod diagnostics;
+mod files;
 mod parsing;
 mod preprocessing;
 mod text;
@@ -11,6 +12,7 @@ pub use crate::{
     assembling::{AssemblyInput, assemble_and_link},
     cmd::CommandError,
     compiling::compile,
+    files::Files,
     parsing::parse,
     preprocessing::preprocess,
     text::Text,

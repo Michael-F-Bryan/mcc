@@ -1,12 +1,13 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use clap::Parser;
+use clap::{ColorChoice as ClapColor, Parser};
+use codespan_reporting::term::{self, Config, termcolor::ColorChoice as TermColor};
+use mcc::{Files, Text};
 use tracing_subscriber::EnvFilter;
 
 const LOG_FILTERS: &[&str] = &["warn", "mcc=debug"];
 
 pub fn main() -> anyhow::Result<()> {
-    println!("{:?}", std::env::args().collect::<Vec<_>>());
     let cli = Cli::parse();
 
     let env_filter = EnvFilter::try_from_default_env()
@@ -31,6 +32,8 @@ pub struct Cli {
     /// The output file to write the compiled object code to.
     #[clap(short, long)]
     output: Option<PathBuf>,
+    #[clap(flatten)]
+    color: colorchoice_clap::Color,
     input: PathBuf,
 }
 
@@ -43,15 +46,25 @@ impl Cli {
 
         let src = std::fs::read_to_string(&self.input)?;
 
-        let source_file = mcc::types::SourceFile::new(&db, self.input.clone(), src.into());
-        let pp_input = mcc::types::PreprocessorInput::new(&db, self.cc.clone(), source_file);
+        let source_file = mcc::types::SourceFile::new(
+            &db,
+            Text::from(self.input.display().to_string()),
+            src.into(),
+        );
+        let mut files = Files::new();
+        files.add(&db, source_file);
 
-        let preprocessed = mcc::preprocess(&db, pp_input)?;
+        let preprocessed = mcc::preprocess(&db, self.cc.clone(), source_file)?;
 
         let preprocessed_path = temp.path().join("preprocessed.c");
         std::fs::write(&preprocessed_path, preprocessed)?;
 
         let ast = mcc::parse(&db, source_file);
+        let diags = mcc::parse::accumulated::<mcc::diagnostics::Diagnostic>(&db, source_file);
+        if !diags.is_empty() {
+            self.emit_diagnostics(&files, &diags)?;
+            anyhow::bail!("Compilation failed");
+        }
 
         if self.stop_at.lex || self.stop_at.parse {
             return Ok(());
@@ -79,6 +92,28 @@ impl Cli {
             use std::os::unix::fs::PermissionsExt;
             let perms = std::fs::Permissions::from_mode(0o755);
             std::fs::set_permissions(&output, perms)?;
+        }
+
+        Ok(())
+    }
+
+    fn emit_diagnostics(
+        &self,
+        files: &Files,
+        diags: &[&mcc::diagnostics::Diagnostic],
+    ) -> anyhow::Result<()> {
+        let color = match self.color.color {
+            ClapColor::Auto => TermColor::Auto,
+            ClapColor::Always => TermColor::Always,
+            ClapColor::Never => TermColor::Never,
+        };
+        let mut writer = codespan_reporting::term::termcolor::StandardStream::stderr(color);
+
+        let cfg = Config::default();
+
+        for diag in diags {
+            let diag = diag.to_codespan();
+            term::emit(&mut writer, &cfg, files, &diag)?;
         }
 
         Ok(())
