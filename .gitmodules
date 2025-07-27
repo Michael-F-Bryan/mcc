@@ -1,3 +1,6 @@
 [submodule "tests/writing-a-c-compiler-tests"]
 	path = tests/writing-a-c-compiler-tests
 	url = https://github.com/nlsandler/writing-a-c-compiler-tests.git
+[submodule "crates/mcc-syntax/tree-sitter-c"]
+	path = crates/mcc-syntax/tree-sitter-c
+	url = https://github.com/tree-sitter/tree-sitter-c
