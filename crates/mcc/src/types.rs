@@ -1,5 +1,8 @@
 use std::ops::Deref;
 
+use mcc_syntax::nodes::TranslationUnit;
+use type_sitter::Node;
+
 use crate::{Db, Text};
 
 #[salsa::input]
@@ -13,6 +16,7 @@ pub struct SourceFile {
 
 #[salsa::tracked]
 pub struct Ast<'db> {
+    #[returns(ref)]
     pub tree: Tree,
 }
 
@@ -21,6 +25,11 @@ impl<'db> Ast<'db> {
     pub fn sexpr(&self, db: &'db dyn Db) -> String {
         let raw = self.tree(db).root_node().to_sexp();
         format_sexpr(&raw)
+    }
+
+    pub fn root(&self, db: &'db dyn Db) -> TranslationUnit<'db> {
+        let root = self.tree(db).root_node();
+        TranslationUnit::try_from_raw(root).unwrap()
     }
 }
 

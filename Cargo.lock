@@ -482,10 +482,12 @@ name = "mcc"
 version = "0.0.0"
 dependencies = [
  "codespan-reporting",
+ "mcc-syntax",
  "salsa",
  "thiserror",
  "tree-sitter",
  "tree-sitter-c",
+ "type-sitter",
 ]
 
 [[package]]
