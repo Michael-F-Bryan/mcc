@@ -1,6 +1,6 @@
 mod assembling;
 mod cmd;
-mod compiling;
+pub mod compiling;
 pub mod diagnostics;
 mod files;
 mod parsing;

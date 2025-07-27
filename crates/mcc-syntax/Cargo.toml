@@ -10,10 +10,9 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-tree-sitter = "0.25.8"
+tree-sitter = { workspace = true }
 type-sitter = { version = "0.7.4", default-features = false }
-type-sitter-lib = "0.7.4"
 
 [build-dependencies]
-tree-sitter-c = "0.24.1"
+tree-sitter-c = { workspace = true }
 type-sitter-gen = "0.7.4"

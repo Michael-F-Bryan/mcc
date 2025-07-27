@@ -66,14 +66,12 @@ impl Cli {
             anyhow::bail!("Compilation failed");
         }
 
-        eprintln!("{}", ast.sexpr(&db));
-
         if self.stop_at.lex || self.stop_at.parse {
             return Ok(());
         }
 
         let asm = temp.path().join("assembly.s");
-        let assembly = mcc::compile(&db, ast);
+        let assembly = mcc::compile(&db, ast, source_file);
         std::fs::write(&asm, assembly)?;
 
         if self.keep_assembly {

@@ -114,7 +114,7 @@ impl TestCase {
                 }
             }
 
-            let assembly = mcc::compile(&db, ast);
+            let assembly = mcc::compile(&db, ast, source_file);
 
             let asm = temp.path().join("assembly.s");
             std::fs::write(&asm, assembly)?;

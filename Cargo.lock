@@ -512,7 +512,6 @@ dependencies = [
  "tree-sitter-c",
  "type-sitter",
  "type-sitter-gen",
- "type-sitter-lib",
 ]
 
 [[package]]

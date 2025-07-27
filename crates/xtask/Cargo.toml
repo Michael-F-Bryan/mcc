@@ -11,4 +11,4 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-clap = { version = "4", features = ["derive", "env"] }
+clap = { workspace = true }

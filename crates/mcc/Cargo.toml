@@ -11,10 +11,10 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-codespan-reporting = "0.12.0"
+codespan-reporting = { workspace = true }
 mcc-syntax = { version = "0.0.0", path = "../mcc-syntax" }
-salsa = "0.23.0"
-thiserror = "2.0.12"
-tree-sitter = "0.25.8"
-tree-sitter-c = "0.24.1"
+salsa = { workspace = true }
+thiserror = { workspace = true }
+tree-sitter = { workspace = true }
+tree-sitter-c = { workspace = true }
 type-sitter = { version = "0.7.4", default-features = false }
