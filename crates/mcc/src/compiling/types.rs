@@ -1,10 +1,12 @@
 use std::fmt::{self, Display};
 
+use mcc_syntax::Span;
+
 use crate::{Db, Text};
 
 #[salsa::tracked]
 pub struct Program<'db> {
-    pub main: FunctionDefinition<'db>,
+    pub functions: Vec<FunctionDefinition<'db>>,
 }
 
 #[salsa::tracked]
@@ -21,10 +23,12 @@ impl<'db> Program<'db> {
         impl<'db> Display for Repr<'db> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let Repr(db, program) = *self;
-                let main = program.main(db).render(db);
 
                 writeln!(f, ".globl main")?;
-                f.write_str(&main)?;
+
+                for function in program.functions(db) {
+                    function.display(db).fmt(f)?;
+                }
 
                 Ok(())
             }
@@ -38,6 +42,7 @@ impl<'db> Program<'db> {
 pub struct FunctionDefinition<'db> {
     pub name: Text,
     pub instructions: Vec<Instruction>,
+    pub span: Span,
 }
 
 #[salsa::tracked]
@@ -57,10 +62,10 @@ impl<'db> FunctionDefinition<'db> {
                 let name = fd.name(db);
                 let instructions = fd.instructions(db);
 
-                writeln!(f, "{}:", name)?;
+                writeln!(f, "{name}:")?;
 
                 for instruction in instructions {
-                    writeln!(f, "  {}", instruction)?;
+                    writeln!(f, "  {instruction}")?;
                 }
 
                 Ok(())

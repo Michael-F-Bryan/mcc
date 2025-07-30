@@ -508,6 +508,10 @@ dependencies = [
 name = "mcc-syntax"
 version = "0.0.0"
 dependencies = [
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
  "tree-sitter",
  "tree-sitter-c",
  "type-sitter",
@@ -1149,8 +1153,7 @@ checksum = "c4013970217383f67b18aef68f6fb2e8d409bc5755227092d32efb0422ba24b8"
 [[package]]
 name = "type-sitter"
 version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94efca34b0452f06cea36a9075a17926ed5380a87265ed1cdd453fec493ecc06"
+source = "git+ssh://git@github.com/Michael-F-Bryan/type-sitter.git?branch=nested-enums#0a135fa682462a3110812a57842fd3b5355f5599"
 dependencies = [
  "type-sitter-lib",
 ]
@@ -1185,8 +1188,7 @@ dependencies = [
 [[package]]
 name = "type-sitter-lib"
 version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78218674da75815f6a2fb276ef9a0e2c5a8a2cffc642ac0b79c846d1e744bca"
+source = "git+ssh://git@github.com/Michael-F-Bryan/type-sitter.git?branch=nested-enums#0a135fa682462a3110812a57842fd3b5355f5599"
 dependencies = [
  "streaming-iterator",
  "tree-sitter",

@@ -1,68 +1,94 @@
-use codespan_reporting::diagnostic::{Label, Severity};
 use salsa::Accumulator;
 
-use crate::{
-    Db, Text,
-    types::{SourceFile, Span},
-};
+use crate::types::SourceFile;
 
-type CodespanDiagnostic = codespan_reporting::diagnostic::Diagnostic<SourceFile>;
+pub type Diagnostic = codespan_reporting::diagnostic::Diagnostic<SourceFile>;
 
-/// A newtype wrapper around [`DiagnosticKind`] that is used to accumulate
-/// errors as the compiler runs.
+pub trait DiagnosticExt {
+    fn accumulate(self, db: &dyn crate::Db);
+}
+
+impl DiagnosticExt for Diagnostic {
+    fn accumulate(self, db: &dyn crate::Db) {
+        Diagnostics(self).accumulate(db);
+    }
+}
+
+/// A newtype wrapper around [`Diagnostic`] that is used to accumulate errors as
+/// the compiler runs.
 #[repr(transparent)]
 #[salsa::accumulator]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Diagnostic(pub DiagnosticKind);
+pub struct Diagnostics(pub Diagnostic);
 
-impl Diagnostic {
-    pub fn to_codespan(&self) -> CodespanDiagnostic {
-        self.0.to_codespan()
+impl From<Diagnostic> for Diagnostics {
+    fn from(diagnostic: Diagnostic) -> Self {
+        Diagnostics(diagnostic)
     }
 }
 
-impl<K: Into<DiagnosticKind>> From<K> for Diagnostic {
-    fn from(k: K) -> Self {
-        Diagnostic(k.into())
-    }
-}
+/// Declarative macro for defining error codes in a hierarchical structure.
+///
+/// # Example
+/// ```rust
+/// mcc::codes! {
+///   parse {
+///     /// The parser encountered an unexpected token.
+///     const UNEXPECTED: &str = "unexpected";
+///   }
+///   types {
+///     /// This part of the type checker isn't implemented.
+///     const UNIMPLEMENTED: &str = "unimplemented";
+///   }
+/// }
+/// ```
+#[macro_export]
+macro_rules! codes {
+    // Base case: no more modules to process
+    () => {};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
-pub enum DiagnosticKind {
-    #[error(transparent)]
-    Parse(ParseError),
-}
-
-impl DiagnosticKind {
-    pub fn to_codespan(&self) -> CodespanDiagnostic {
-        match self {
-            DiagnosticKind::Parse(e) => e.to_codespan(),
+    // Handle a module with constants
+    (
+        $module:ident {
+            $($(#[$doc:meta])* const $const_name:ident: &str = $value:expr;)*
         }
-    }
+        $($rest:tt)*
+    ) => {
+        pub mod $module {
+            $(
+                $(#[$doc])*
+                pub const $const_name: &str = concat!(stringify!($module), "::", $value);
+            )*
+        }
+        $crate::codes!($($rest)*);
+    };
+
+    // Handle nested modules
+    (
+        $module:ident {
+            $($nested:tt)*
+        }
+        $($rest:tt)*
+    ) => {
+        pub mod $module {
+            $crate::codes!($($nested)*);
+        }
+        $crate::codes!($($rest)*);
+    };
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
-#[error("parse error: {msg}")]
-pub struct ParseError {
-    pub file: SourceFile,
-    pub span: Span,
-    pub msg: Text,
-}
+pub mod codes {
+    codes! {
+        parse {
+            /// The parser encountered an unexpected token.
+            const UNEXPECTED_TOKEN: &str = "unexpected_token";
+            /// The parser expected a token but found none.
+            const MISSING_TOKEN: &str = "missing_token";
+        }
 
-impl ParseError {
-    pub fn accumulate(self, db: &dyn Db) {
-        Diagnostic::from(self).accumulate(db);
-    }
-
-    pub fn to_codespan(&self) -> CodespanDiagnostic {
-        CodespanDiagnostic::new(Severity::Error)
-            .with_message(self.msg.to_string())
-            .with_label(Label::primary(self.file, self.span))
-    }
-}
-
-impl From<ParseError> for DiagnosticKind {
-    fn from(value: ParseError) -> Self {
-        DiagnosticKind::Parse(value)
+        types {
+            /// This part of the type checker isn't implemented.
+            const UNIMPLEMENTED: &str = "unimplemented";
+        }
     }
 }

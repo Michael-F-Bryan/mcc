@@ -58,3 +58,27 @@ impl std::borrow::Borrow<str> for Text {
         &self.0
     }
 }
+
+impl PartialEq<&str> for Text {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialEq<Text> for &str {
+    fn eq(&self, other: &Text) -> bool {
+        *self == other.as_str()
+    }
+}
+
+impl PartialEq<String> for Text {
+    fn eq(&self, other: &String) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialEq<Text> for String {
+    fn eq(&self, other: &Text) -> bool {
+        *self == other.as_str()
+    }
+}

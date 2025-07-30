@@ -1,10 +1,11 @@
-use mcc_syntax::nodes as ast;
-use type_sitter::{HasChildren, HasOptionalChild, Node};
+use codespan_reporting::diagnostic::Label;
+use mcc_syntax::ast;
+use type_sitter::{HasChildren, Node, TreeCursor};
 
-use super::types::Program;
 use crate::{
     Db, Text,
-    compiling::{FunctionDefinition, Instruction, Mov, Operand, Ret},
+    compiling::{FunctionDefinition, Instruction, Mov, Operand, Program, Ret},
+    diagnostics::{Diagnostic, DiagnosticExt, codes},
     types::{Ast, SourceFile},
 };
 
@@ -18,7 +19,6 @@ pub fn compile(db: &dyn Db, ast: Ast<'_>, file: SourceFile) -> Text {
 #[salsa::tracked]
 fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> Program<'db> {
     let translation_unit = ast.root(db);
-    let src = file.contents(db);
 
     let mut cursor = translation_unit.walk();
     let mut functions = Vec::new();
@@ -30,7 +30,7 @@ fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> Program<'db> 
         type Child<'db> = <ast::TranslationUnit<'db> as HasChildren<'db>>::Child;
         match child {
             Child::FunctionDefinition(f) => {
-                if let Some(f) = lower_function(db, f, src) {
+                if let Some(f) = lower_function(db, f, file) {
                     functions.push(f);
                 }
             }
@@ -38,61 +38,100 @@ fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> Program<'db> 
         }
     }
 
-    assert_eq!(functions.len(), 1);
-    let main = functions.pop().unwrap();
-    assert_eq!(main.name(db).as_str(), "main");
+    match functions.as_slice() {
+        [] => {
+            let diagnostic = Diagnostic::error()
+                .with_message("The program must contain a valid `main` function")
+                .with_labels(vec![
+                    Label::primary(file, translation_unit.span())
+                        .with_message("error occurred here"),
+                ]);
+            diagnostic.accumulate(db);
+        }
+        [main] if main.name(db) == "main" => {
+            // Happy path
+        }
+        [..] => {
+            for func in &functions {
+                if func.name(db).as_str() == "main" {
+                    continue;
+                }
 
-    Program::new(db, main)
+                let diagnostic = Diagnostic::error()
+                    .with_message("Only a `main` function is supported")
+                    .with_labels(vec![
+                        Label::primary(file, func.span(db)).with_message("error occurred here"),
+                    ]);
+                diagnostic.accumulate(db);
+            }
+        }
+    }
+
+    Program::new(db, functions)
 }
 
 fn lower_function<'db>(
     db: &'db dyn Db,
     f: ast::FunctionDefinition<'db>,
-    src: &'db str,
+    file: SourceFile,
 ) -> Option<FunctionDefinition<'db>> {
-    let signature = f.declarator().ok()?.as_function_declarator()?;
-    let name = signature
-        .declarator()
-        .ok()?
-        .as_identifier()?
-        .utf8_text(src.as_bytes())
-        .ok()?;
+    let signature: ast::FunctionDeclarator<'db> = f.declarator().ok()?.as_function_declarator()?;
+    let ident: ast::Identifier<'db> = signature.declarator().ok()?.as_identifier()?;
+    let src = file.contents(db);
+    let name = ident.utf8_text(src.as_bytes()).ok()?;
 
     let mut instructions = Vec::new();
 
-    let compound_statement = f.body().ok()?.into_raw();
-    let mut cursor = compound_statement.walk();
-    let children = compound_statement
-        .children(&mut cursor)
-        .filter_map(|c| ast::Statement::try_from_raw(c).ok());
+    let body: ast::CompoundStatement<'db> = f.body().ok()?;
+    let mut cursor: TreeCursor<'db> = body.walk();
 
-    for child in children {
-        eprintln!("{}", child.to_sexp());
-
+    for child in body
+        .raw()
+        .children(&mut cursor.0)
+        .filter_map(|c| ast::Statement::try_from_raw(c).ok())
+    {
+        let mut cursor: TreeCursor<'db> = child.walk();
         match child {
             ast::Statement::ReturnStatement(r) => {
-                type Expr<'db> = <ast::ReturnStatement<'db> as HasOptionalChild<'db>>::Child;
-
-                match r.child().and_then(|c| c.ok()) {
-                    Some(Expr::Expression(ast::Expression::NumberLiteral(literal))) => {
+                dbg!(r.to_sexp());
+                match r
+                    .raw()
+                    .children(&mut cursor.0)
+                    .find_map(|c| ast::Expression::try_from_raw(c).ok())
+                {
+                    Some(ast::Expression::NumberLiteral(literal)) => {
                         let ret_value = literal.utf8_text(src.as_bytes()).ok()?.parse().unwrap();
                         instructions.push(Instruction::Mov(Mov {
                             src: Operand::Imm(ret_value),
                             dst: Operand::Register,
                         }));
                     }
-                    Some(Expr::Expression(_)) => todo!(),
-                    Some(Expr::CommaExpression(_)) => todo!(),
+                    Some(other) => {
+                        let diagnostic = Diagnostic::bug()
+                            .with_message("Expected a number literal, but found something else")
+                            .with_code(codes::types::UNIMPLEMENTED)
+                            .with_labels(vec![
+                                Label::primary(file, other.span())
+                                    .with_message("error occurred here"),
+                            ]);
+                        diagnostic.accumulate(db);
+                        return None;
+                    }
                     None => todo!(),
                 }
 
                 instructions.push(Instruction::Ret(Ret));
             }
-            _ => todo!(),
+            other => todo!("{:?}", other),
         }
     }
 
-    eprintln!("{name} => {instructions:?}");
+    assert!(!instructions.is_empty());
 
-    Some(FunctionDefinition::new(db, name.into(), instructions))
+    Some(FunctionDefinition::new(
+        db,
+        name.into(),
+        instructions,
+        f.span(),
+    ))
 }

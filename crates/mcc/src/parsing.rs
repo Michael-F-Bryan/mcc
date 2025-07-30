@@ -1,10 +1,11 @@
-use salsa::Accumulator;
+use codespan_reporting::diagnostic::Label;
+use mcc_syntax::Span;
 use tree_sitter::{Language, Node, StreamingIterator};
 
 use crate::{
     Db,
-    diagnostics::{Diagnostic, ParseError},
-    types::{Ast, SourceFile, Span, Tree},
+    diagnostics::{Diagnostic, DiagnosticExt, codes},
+    types::{Ast, SourceFile, Tree},
 };
 
 /// Parse a C program into an abstract syntax tree.
@@ -29,7 +30,7 @@ pub fn parse(db: &dyn Db, file: SourceFile) -> Ast<'_> {
 /// we want it to be required.
 fn ensure_return_type(db: &dyn Db, lang: &Language, tree: &Tree, file: SourceFile) {
     let query = tree_sitter::Query::new(
-        &lang,
+        lang,
         "(function_definition
           type: (type_identifier) @missing-return-type
           declarator: (parenthesized_declarator)) @function-def",
@@ -41,12 +42,14 @@ fn ensure_return_type(db: &dyn Db, lang: &Language, tree: &Tree, file: SourceFil
     let mut captures = cursor.matches(&query, tree.root_node(), src.as_bytes());
 
     while let Some(m) = captures.next() {
-        let error = ParseError {
-            file,
-            msg: format!("Expected a return type for function").into(),
-            span: Span::for_node(m.captures[0].node),
-        };
-        error.accumulate(db);
+        let diagnostic = codespan_reporting::diagnostic::Diagnostic::error()
+            .with_message("Expected a return type for function")
+            .with_code(codes::parse::MISSING_TOKEN)
+            .with_labels(vec![
+                Label::primary(file, Span::for_node(m.captures[0].node))
+                    .with_message("error occurred here"),
+            ]);
+        diagnostic.accumulate(db);
     }
 }
 
@@ -75,26 +78,29 @@ fn check_node(db: &dyn Db, node: Node<'_>, file: SourceFile) -> Continuation {
     if !node.has_error() {
         Continuation::Skip
     } else if node.is_missing() {
-        let error = ParseError {
-            file,
-            msg: format!("Expected a \"{}\"", node.parent().unwrap().grammar_name(),).into(),
-            span: Span::for_node(node),
-        };
-        Continuation::Emit(error.into())
+        let diagnostic = Diagnostic::error()
+            .with_message(format!(
+                "Expected a \"{}\"",
+                node.parent().unwrap().grammar_name()
+            ))
+            .with_code(codes::parse::UNEXPECTED_TOKEN)
+            .with_labels(vec![
+                Label::primary(file, Span::for_node(node)).with_message("error occurred here"),
+            ]);
+        Continuation::Emit(diagnostic)
     } else if node.is_error() {
         let token = node.utf8_text(file.contents(db).as_ref()).unwrap();
 
-        let error = ParseError {
-            file,
-            msg: format!(
+        let diagnostic = Diagnostic::error()
+            .with_message(format!(
                 "Expected a \"{}\", but found \"{}\"",
                 node.parent().unwrap().grammar_name(),
                 token
-            )
-            .into(),
-            span: Span::for_node(node),
-        };
-        Continuation::Emit(error.into())
+            ))
+            .with_labels(vec![
+                Label::primary(file, Span::for_node(node)).with_message("error occurred here"),
+            ]);
+        Continuation::Emit(diagnostic)
     } else {
         Continuation::Recurse
     }
@@ -112,7 +118,9 @@ enum Continuation {
 
 #[cfg(test)]
 mod tests {
-    use crate::Database;
+    use codespan_reporting::diagnostic::Label;
+
+    use crate::{Database, diagnostics::Diagnostics};
 
     use super::*;
 
@@ -131,15 +139,19 @@ mod tests {
         "#;
 
         let file = SourceFile::new(&db, "test.c".into(), src.into());
-        let diags = parse::accumulated::<Diagnostic>(&db, file);
+        let diags = parse::accumulated::<Diagnostics>(&db, file);
 
         assert_eq!(
             diags,
-            &[&Diagnostic::from(ParseError {
-                file,
-                msg: "Expected a return type for function".into(),
-                span: Span::new(232, 52),
-            })]
+            &[&Diagnostics::from(
+                codespan_reporting::diagnostic::Diagnostic::error()
+                    .with_code(codes::parse::MISSING_TOKEN)
+                    .with_message("Expected a return type for function")
+                    .with_labels(vec![
+                        Label::primary(file, Span::new(232, 52))
+                            .with_message("error occurred here")
+                    ])
+            )]
         );
     }
 }

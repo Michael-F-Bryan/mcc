@@ -2,7 +2,7 @@ use std::{ffi::OsString, path::PathBuf};
 
 use clap::{ColorChoice as ClapColor, Parser};
 use codespan_reporting::term::{self, Config, termcolor::ColorChoice as TermColor};
-use mcc::{Files, Text};
+use mcc::{Files, Text, diagnostics::Diagnostics};
 use tracing_subscriber::EnvFilter;
 
 const LOG_FILTERS: &[&str] = &["warn", "mcc=debug"];
@@ -60,10 +60,10 @@ impl Cli {
         std::fs::write(&preprocessed_path, preprocessed)?;
 
         let ast = mcc::parse(&db, source_file);
-        let diags = mcc::parse::accumulated::<mcc::diagnostics::Diagnostic>(&db, source_file);
+        let diags: Vec<&Diagnostics> = mcc::parse::accumulated::<Diagnostics>(&db, source_file);
         if !diags.is_empty() {
             self.emit_diagnostics(&files, &diags)?;
-            anyhow::bail!("Compilation failed");
+            anyhow::bail!("Parsing failed");
         }
 
         if self.stop_at.lex || self.stop_at.parse {
@@ -74,6 +74,13 @@ impl Cli {
         let assembly = mcc::compile(&db, ast, source_file);
         std::fs::write(&asm, assembly)?;
 
+        let diags: Vec<&Diagnostics> =
+            mcc::compile::accumulated::<Diagnostics>(&db, ast, source_file);
+        if !diags.is_empty() {
+            self.emit_diagnostics(&files, &diags)?;
+            anyhow::bail!("Compilation failed");
+        }
+
         if self.keep_assembly {
             std::fs::copy(&asm, self.input.with_extension("s"))?;
         }
@@ -82,9 +89,7 @@ impl Cli {
             return Ok(());
         }
 
-        let output = self
-            .output
-            .unwrap_or_else(|| self.input.with_extension("o"));
+        let output = self.output.unwrap_or_else(|| self.input.with_extension(""));
 
         mcc::assemble_and_link(&db, self.cc.clone(), asm, output.clone())?;
 
@@ -101,7 +106,7 @@ impl Cli {
     fn emit_diagnostics(
         &self,
         files: &Files,
-        diags: &[&mcc::diagnostics::Diagnostic],
+        diags: &[&mcc::diagnostics::Diagnostics],
     ) -> anyhow::Result<()> {
         let color = match self.color.color {
             ClapColor::Auto => TermColor::Auto,
@@ -113,8 +118,7 @@ impl Cli {
         let cfg = Config::default();
 
         for diag in diags {
-            let diag = diag.to_codespan();
-            term::emit(&mut writer, &cfg, files, &diag)?;
+            term::emit(&mut writer, &cfg, files, &diag.0)?;
         }
 
         Ok(())

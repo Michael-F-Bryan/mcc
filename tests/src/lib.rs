@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Error;
 use libtest_mimic::{Failed, Trial};
-use mcc::{Text, diagnostics::Diagnostic, types::SourceFile};
+use mcc::{Text, diagnostics::Diagnostics, types::SourceFile};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -97,7 +97,7 @@ impl TestCase {
             let source_file = SourceFile::new(&db, path, preprocessed);
             let ast = mcc::parse(&db, source_file);
             eprintln!("{}", ast.sexpr(&db));
-            let diags = mcc::parse::accumulated::<Diagnostic>(&db, source_file);
+            let diags = mcc::parse::accumulated::<Diagnostics>(&db, source_file);
 
             match (diags.as_slice(), kind_str) {
                 ([_, ..], Some("lex" | "parse")) => {
