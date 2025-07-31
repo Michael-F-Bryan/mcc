@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 
 use mcc_syntax::Span;
+use target_lexicon::{OperatingSystem, Triple};
 
 use crate::{Db, Text};
 
@@ -11,30 +12,37 @@ pub struct Program<'db> {
 
 #[salsa::tracked]
 impl<'db> Program<'db> {
-    pub fn render(self, db: &'db dyn Db) -> Text {
-        self.display(db).to_string().into()
+    pub fn render(self, db: &'db dyn Db, target: Triple) -> Text {
+        self.display(db, &target).to_string().into()
     }
 }
 
 impl<'db> Program<'db> {
-    fn display(self, db: &'db dyn Db) -> impl Display {
-        struct Repr<'db>(&'db dyn Db, Program<'db>);
+    fn display<'a>(self, db: &'db dyn Db, target: &'a Triple) -> impl Display + 'a
+    where
+        'db: 'a,
+    {
+        struct Repr<'b>(&'b dyn Db, Program<'b>, &'b Triple);
 
-        impl<'db> Display for Repr<'db> {
+        impl<'b> Display for Repr<'b> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let Repr(db, program) = *self;
+                let Repr(db, program, target) = *self;
 
                 writeln!(f, ".globl main")?;
 
                 for function in program.functions(db) {
-                    function.display(db).fmt(f)?;
+                    function.display(db, target).fmt(f)?;
+                }
+
+                if target.operating_system == OperatingSystem::Linux {
+                    writeln!(f, ".section .note.GNU-stack, \"\", @progbits")?;
                 }
 
                 Ok(())
             }
         }
 
-        Repr(db, self)
+        Repr(db, self, target)
     }
 }
 
@@ -47,20 +55,29 @@ pub struct FunctionDefinition<'db> {
 
 #[salsa::tracked]
 impl<'db> FunctionDefinition<'db> {
-    pub fn render(self, db: &'db dyn Db) -> Text {
-        self.display(db).to_string().into()
+    pub fn render(self, db: &'db dyn Db, target: &Triple) -> Text {
+        self.display(db, target).to_string().into()
     }
 }
 
 impl<'db> FunctionDefinition<'db> {
-    fn display(self, db: &'db dyn Db) -> impl Display {
-        struct Repr<'db>(&'db dyn Db, FunctionDefinition<'db>);
+    fn display<'a>(self, db: &'db dyn Db, target: &'a Triple) -> impl Display + 'a
+    where
+        'db: 'a,
+    {
+        struct Repr<'a>(&'a dyn Db, FunctionDefinition<'a>, &'a Triple);
 
-        impl<'db> Display for Repr<'db> {
+        impl<'a> Display for Repr<'a> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let Self(db, fd) = *self;
+                let Self(db, fd, target) = *self;
                 let name = fd.name(db);
                 let instructions = fd.instructions(db);
+
+                // Note: macOS requires functions to be prefixed with an
+                // underscore.
+                if matches!(target.operating_system, OperatingSystem::Darwin(_)) {
+                    write!(f, "_")?;
+                }
 
                 writeln!(f, "{name}:")?;
 
@@ -72,7 +89,7 @@ impl<'db> FunctionDefinition<'db> {
             }
         }
 
-        Repr(db, self)
+        Repr(db, self, target)
     }
 }
 

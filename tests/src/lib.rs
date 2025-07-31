@@ -83,6 +83,7 @@ impl TestCase {
             let db = mcc::Database::default();
 
             let temp = tempfile::tempdir()?;
+            let target = mcc::default_target();
             let src = std::fs::read_to_string(&path)?;
             let path = Text::from(path.display().to_string());
             let kind_str = kind.invalid_reason();
@@ -114,14 +115,33 @@ impl TestCase {
                 }
             }
 
-            let assembly = mcc::compile(&db, ast, source_file);
+            let assembly = mcc::compile(&db, ast, source_file, target.clone());
+
+            let diags =
+                mcc::compile::accumulated::<Diagnostics>(&db, ast, source_file, target.clone());
+            match (diags.as_slice(), kind_str) {
+                ([_, ..], Some("codegen")) => {
+                    // Expected error
+                    return Ok(());
+                }
+                ([], _) => {
+                    // No errors
+                }
+                _ => {
+                    return Err(Failed::from(format!(
+                        "expected no errors, but got {diags:#?}"
+                    )));
+                }
+            }
 
             let asm = temp.path().join("assembly.s");
             std::fs::write(&asm, assembly)?;
 
             let object_code = temp.path().join("object_code.o");
 
-            if let Err(e) = mcc::assemble_and_link(&db, cc.clone(), asm, object_code.clone()) {
+            if let Err(e) =
+                mcc::assemble_and_link(&db, cc.clone(), asm, object_code.clone(), target.clone())
+            {
                 if let Some("codegen") = kind_str {
                     // Expected error
                     return Ok(());

@@ -1,8 +1,8 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::{ffi::OsString, path::PathBuf, str::FromStr, sync::LazyLock};
 
 use clap::{ColorChoice as ClapColor, Parser};
 use codespan_reporting::term::{self, Config, termcolor::ColorChoice as TermColor};
-use mcc::{Files, Text, diagnostics::Diagnostics};
+use mcc::{Files, Text, diagnostics::Diagnostics, target_lexicon::Triple};
 use tracing_subscriber::EnvFilter;
 
 const LOG_FILTERS: &[&str] = &["warn", "mcc=debug"];
@@ -34,6 +34,8 @@ pub struct Cli {
     output: Option<PathBuf>,
     #[clap(flatten)]
     color: colorchoice_clap::Color,
+    #[clap(long, default_value_t = DEFAULT_TARGET.clone(), value_parser = parse_target)]
+    target: Triple,
     input: PathBuf,
 }
 
@@ -71,11 +73,11 @@ impl Cli {
         }
 
         let asm = temp.path().join("assembly.s");
-        let assembly = mcc::compile(&db, ast, source_file);
+        let assembly = mcc::compile(&db, ast, source_file, self.target.clone());
         std::fs::write(&asm, assembly)?;
 
         let diags: Vec<&Diagnostics> =
-            mcc::compile::accumulated::<Diagnostics>(&db, ast, source_file);
+            mcc::compile::accumulated::<Diagnostics>(&db, ast, source_file, self.target.clone());
         if !diags.is_empty() {
             self.emit_diagnostics(&files, &diags)?;
             anyhow::bail!("Compilation failed");
@@ -91,7 +93,13 @@ impl Cli {
 
         let output = self.output.unwrap_or_else(|| self.input.with_extension(""));
 
-        mcc::assemble_and_link(&db, self.cc.clone(), asm, output.clone())?;
+        mcc::assemble_and_link(
+            &db,
+            self.cc.clone(),
+            asm,
+            output.clone(),
+            self.target.clone(),
+        )?;
 
         #[cfg(unix)]
         {
@@ -136,4 +144,10 @@ struct Stage {
     /// Stop after generating assembly.
     #[clap(long, group = "stage")]
     codegen: bool,
+}
+
+static DEFAULT_TARGET: LazyLock<Triple> = LazyLock::new(mcc::default_target);
+
+fn parse_target(s: &str) -> anyhow::Result<Triple> {
+    Triple::from_str(s).map_err(|e| anyhow::anyhow!("{}", e))
 }

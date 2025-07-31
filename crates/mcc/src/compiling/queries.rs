@@ -1,5 +1,6 @@
 use codespan_reporting::diagnostic::Label;
 use mcc_syntax::ast;
+use target_lexicon::Triple;
 use type_sitter::{HasChildren, Node, TreeCursor};
 
 use crate::{
@@ -11,9 +12,14 @@ use crate::{
 
 /// Compile a parsed C program into assembly.
 #[salsa::tracked]
-pub fn compile(db: &dyn Db, ast: Ast<'_>, file: SourceFile) -> Text {
+pub fn compile(db: &dyn Db, ast: Ast<'_>, file: SourceFile, target: Triple) -> Text {
     let lowered = lower(db, ast, file);
-    lowered.render(db)
+    render_asm(db, lowered, target)
+}
+
+#[salsa::tracked]
+pub fn render_asm(db: &dyn Db, program: Program<'_>, target: Triple) -> Text {
+    program.render(db, target)
 }
 
 #[salsa::tracked]
@@ -93,7 +99,6 @@ fn lower_function<'db>(
         let mut cursor: TreeCursor<'db> = child.walk();
         match child {
             ast::Statement::ReturnStatement(r) => {
-                dbg!(r.to_sexp());
                 match r
                     .raw()
                     .children(&mut cursor.0)

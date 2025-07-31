@@ -26,7 +26,7 @@ pub(crate) fn run_cmd(cmd: &mut Command) -> Result<Output, CommandError> {
 pub enum CommandError {
     #[error("unable to start \"{cmd}\": {error:?}")]
     StartFailed { cmd: Text, error: Text },
-    #[error("command \"{cmd}\" completed unsuccessfully: {status}")]
+    #[error("command \"{cmd}\" completed unsuccessfully: {status}\n{stderr}")]
     CompletedUnsuccessfully {
         cmd: Text,
         status: i32,

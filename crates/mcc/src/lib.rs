@@ -1,3 +1,5 @@
+pub extern crate target_lexicon;
+
 mod assembling;
 mod cmd;
 pub mod compiling;
@@ -13,6 +15,8 @@ pub use crate::{
     parsing::parse, preprocessing::preprocess, text::Text,
 };
 
+use target_lexicon::{Architecture, Triple};
+
 #[salsa::db]
 pub trait Db: salsa::Database {}
 
@@ -27,3 +31,10 @@ pub struct Database {
 
 #[salsa::db]
 impl salsa::Database for Database {}
+
+pub fn default_target() -> Triple {
+    Triple {
+        architecture: Architecture::X86_64,
+        ..Triple::host()
+    }
+}
