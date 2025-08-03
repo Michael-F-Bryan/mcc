@@ -3,9 +3,9 @@ use std::{ffi::OsString, path::PathBuf, str::FromStr, sync::LazyLock};
 use clap::{ColorChoice as ClapColor, Parser};
 use codespan_reporting::term::{self, Config, termcolor::ColorChoice as TermColor};
 use mcc::{Files, Text, diagnostics::Diagnostics, target_lexicon::Triple};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
-const LOG_FILTERS: &[&str] = &["warn", "mcc=debug"];
+const LOG_FILTERS: &[&str] = &["warn", "mcc=debug", "mcc-syntax=debug", "mcc-driver=debug"];
 
 pub fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -13,7 +13,11 @@ pub fn main() -> anyhow::Result<()> {
     let env_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| LOG_FILTERS.join(",").parse().unwrap());
 
-    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+    tracing_subscriber::fmt()
+        .compact()
+        .with_env_filter(env_filter)
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
 
     cli.run()
 }
@@ -40,7 +44,7 @@ pub struct Cli {
 }
 
 impl Cli {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(level = "info", skip_all)]
     pub fn run(self) -> anyhow::Result<()> {
         let temp = tempfile::tempdir()?;
 
@@ -72,12 +76,27 @@ impl Cli {
             return Ok(());
         }
 
+        let tacky = mcc::lowering::lower(&db, ast, source_file);
+        let diags: Vec<&Diagnostics> =
+            mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, source_file);
+        if !diags.is_empty() {
+            self.emit_diagnostics(&files, &diags)?;
+            anyhow::bail!("Lowering failed");
+        }
+
+        if self.stop_at.tacky {
+            return Ok(());
+        }
+
         let asm = temp.path().join("assembly.s");
-        let assembly = mcc::compile(&db, ast, source_file, self.target.clone());
+        let assembly = mcc::codegen::generate_assembly(&db, tacky, self.target.clone());
         std::fs::write(&asm, assembly)?;
 
-        let diags: Vec<&Diagnostics> =
-            mcc::compile::accumulated::<Diagnostics>(&db, ast, source_file, self.target.clone());
+        let diags: Vec<&Diagnostics> = mcc::codegen::generate_assembly::accumulated::<Diagnostics>(
+            &db,
+            tacky,
+            self.target.clone(),
+        );
         if !diags.is_empty() {
             self.emit_diagnostics(&files, &diags)?;
             anyhow::bail!("Compilation failed");
@@ -141,6 +160,9 @@ struct Stage {
     /// Stop after parsing the file.
     #[clap(long, group = "stage")]
     parse: bool,
+    /// Stop after lowering to Three Address Code.
+    #[clap(long, group = "stage")]
+    tacky: bool,
     /// Stop after generating assembly.
     #[clap(long, group = "stage")]
     codegen: bool,

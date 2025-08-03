@@ -15,7 +15,11 @@ codespan-reporting = { workspace = true }
 mcc-syntax = { version = "0.0.0", path = "../mcc-syntax" }
 salsa = { workspace = true }
 target-lexicon = "0.13.2"
-thiserror.workspace = true
+thiserror = { workspace = true }
+tracing = { workspace = true }
 tree-sitter = { workspace = true }
 tree-sitter-c = { workspace = true }
 type-sitter = { version = "0.7.4", default-features = false }
+
+[dev-dependencies]
+insta = "1.43.1"

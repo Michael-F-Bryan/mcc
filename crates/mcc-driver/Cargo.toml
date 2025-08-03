@@ -9,7 +9,6 @@ readme.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-default-run = "mcc"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,7 +19,7 @@ codespan-reporting = { workspace = true }
 colorchoice-clap = "1.0.7"
 mcc = { version = "0.0.0", path = "../mcc" }
 tempfile = "3.20.0"
-tracing = "0.1.41"
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
 
 [[bin]]

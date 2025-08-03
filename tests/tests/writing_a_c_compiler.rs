@@ -9,7 +9,7 @@ fn run_test_compiler() {
     let test_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("writing-a-c-compiler-tests");
 
     let mut cmd = Command::new(test_root.join("test_compiler"));
-    cmd.arg(compiler_driver).arg("--chapter=1");
+    cmd.arg(compiler_driver).arg("--chapter=2");
     println!("Running: {cmd:?}");
 
     let output = cmd.output().unwrap();

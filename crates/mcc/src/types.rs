@@ -33,6 +33,36 @@ impl<'db> Ast<'db> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Tree(pub tree_sitter::Tree);
+
+impl From<tree_sitter::Tree> for Tree {
+    fn from(value: tree_sitter::Tree) -> Self {
+        Tree(value)
+    }
+}
+
+impl Deref for Tree {
+    type Target = tree_sitter::Tree;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq for Tree {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.root_node() == other.0.root_node()
+    }
+}
+
+impl Eq for Tree {}
+
+impl std::hash::Hash for Tree {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.root_node().hash(state);
+    }
+}
+
 /// A quick'n'dirty s-expression pretty-printer.
 fn format_sexpr(raw: &str) -> String {
     let mut result = String::new();
@@ -94,35 +124,40 @@ fn format_sexpr(raw: &str) -> String {
         }
     }
 
-    result
+    result.trim_start().to_string()
 }
 
-#[derive(Debug, Clone)]
-pub struct Tree(pub tree_sitter::Tree);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl From<tree_sitter::Tree> for Tree {
-    fn from(value: tree_sitter::Tree) -> Self {
-        Tree(value)
+    macro_rules! sexpr_test {
+        (
+            $(
+                $(#[$meta:meta])*
+                $name:ident : $sexpr:expr => $expected:expr
+            ),*
+            $(,)?
+        ) => {
+            $(
+                $(#[$meta])*
+                #[test]
+                fn $name() {
+                    let formatted = format_sexpr($sexpr);
+                    assert_eq!(formatted, $expected);
+                    insta::assert_snapshot!(formatted);
+                }
+            )*
+        };
     }
-}
 
-impl Deref for Tree {
-    type Target = tree_sitter::Tree;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl PartialEq for Tree {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.root_node() == other.0.root_node()
-    }
-}
-
-impl Eq for Tree {}
-
-impl std::hash::Hash for Tree {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.root_node().hash(state);
+    sexpr_test! {
+        test_empty: "()" => "()",
+        test_one_element: "(a)" => "(a)",
+        test_nested: "(a (b c))" => "(a \n  (b \n    c))",
+        test_field: "(a :b c)" => "(a :b c)",
+        test_field_with_spaces_and_newlines: "(a :b\nc d)" => "(a :b\nc d)",
+        test_field_with_spaces_and_newlines_and_tabs: "(a :b\tc d)" => "(a :b\tc d)",
+        translation_unit: r#"(translation_unit (function_definition type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type)))) body: (compound_statement (return_statement (parenthesized_expression (unary_expression (ERROR) argument: (number_literal)) (MISSING \")\"))))))"# => r#"(translation_unit (function_definition type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type)))) body: (compound_statement (return_statement (parenthesized_expression (unary_expression (ERROR) argument: (number_literal)) (MISSING \")\"))))))"#,
     }
 }

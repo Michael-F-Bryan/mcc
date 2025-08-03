@@ -1,0 +1,6 @@
+---
+source: crates/mcc/src/types.rs
+assertion_line: 154
+expression: formatted
+---
+()

@@ -2,17 +2,18 @@ pub extern crate target_lexicon;
 
 mod assembling;
 mod cmd;
-pub mod compiling;
+pub mod codegen;
 pub mod diagnostics;
 mod files;
+pub mod lowering;
 mod parsing;
 mod preprocessing;
 mod text;
 pub mod types;
 
 pub use crate::{
-    assembling::assemble_and_link, cmd::CommandError, compiling::compile, files::Files,
-    parsing::parse, preprocessing::preprocess, text::Text,
+    assembling::assemble_and_link, cmd::CommandError, files::Files, parsing::parse,
+    preprocessing::preprocess, text::Text,
 };
 
 use target_lexicon::{Architecture, Triple};

@@ -5,6 +5,7 @@ use crate::Text;
 /// Run a command and return its output.
 ///
 /// If the command fails, this function will return an error.
+#[tracing::instrument(level = "debug")]
 pub(crate) fn run_cmd(cmd: &mut Command) -> Result<Output, CommandError> {
     let output = cmd.output().map_err(|e| CommandError::StartFailed {
         cmd: format!("{cmd:?}").into(),

@@ -46,10 +46,14 @@ pub fn discover(test_root: &Path) -> Result<Vec<TestCase>, Error> {
             for entry in path.read_dir()? {
                 let entry = entry?;
                 let path = entry.path();
+                let name = path.file_stem().unwrap().to_str().unwrap();
+                let name = format!("chapter_{chapter}::{kind}::{name}");
+
                 tests.push(TestCase {
                     chapter,
                     kind: kind.clone(),
                     path,
+                    name,
                 });
             }
         }
@@ -65,21 +69,18 @@ pub struct TestCase {
     pub chapter: u32,
     pub kind: Kind,
     pub path: PathBuf,
+    pub name: String,
 }
 
 impl TestCase {
-    pub fn trial(self, max_chapter: u32) -> Trial {
+    pub fn trial(self) -> Trial {
         let cc = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
 
         let TestCase {
-            chapter,
-            kind,
-            path,
+            kind, path, name, ..
         } = self;
 
-        let name = path.file_stem().unwrap().to_str().unwrap();
-
-        Trial::test(format!("chapter_{chapter}::{kind}::{name}"), move || {
+        Trial::test(name, move || {
             let db = mcc::Database::default();
 
             let temp = tempfile::tempdir()?;
@@ -115,10 +116,29 @@ impl TestCase {
                 }
             }
 
-            let assembly = mcc::compile(&db, ast, source_file, target.clone());
+            let tacky = mcc::lowering::lower(&db, ast, source_file);
+            let diags = mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, source_file);
+            match (diags.as_slice(), kind_str) {
+                ([_, ..], Some("tacky")) => {
+                    // Expected error
+                    return Ok(());
+                }
+                ([], _) => {
+                    // No errors
+                }
+                _ => {
+                    return Err(Failed::from(format!(
+                        "expected no errors, but got {diags:#?}"
+                    )));
+                }
+            }
 
-            let diags =
-                mcc::compile::accumulated::<Diagnostics>(&db, ast, source_file, target.clone());
+            let assembly = mcc::codegen::generate_assembly(&db, tacky, target.clone());
+            let diags = mcc::codegen::generate_assembly::accumulated::<Diagnostics>(
+                &db,
+                tacky,
+                target.clone(),
+            );
             match (diags.as_slice(), kind_str) {
                 ([_, ..], Some("codegen")) => {
                     // Expected error
@@ -158,7 +178,6 @@ impl TestCase {
 
             Ok(())
         })
-        .with_ignored_flag(chapter > max_chapter)
     }
 }
 

@@ -7,6 +7,7 @@ use std::{
 use crate::{Db, Text, types::SourceFile};
 
 /// Run the C preprocessor on the given input.
+#[tracing::instrument(level = "info", skip_all)]
 #[salsa::tracked]
 pub fn preprocess(db: &dyn Db, cc: OsString, src: SourceFile) -> Result<Text, PreprocessorError> {
     let path = src.path(db);

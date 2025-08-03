@@ -20,6 +20,7 @@ salsa = "0.23.0"
 thiserror = "2.0.12"
 tree-sitter = "0.25.8"
 tree-sitter-c = "0.24.1"
+tracing = { version = "0.1.41", features = ["attributes"] }
 
 [patch.crates-io]
 type-sitter = { git = "ssh://git@github.com/Michael-F-Bryan/type-sitter.git", branch = "nested-enums"}

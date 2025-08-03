@@ -9,8 +9,7 @@ use crate::{
 };
 
 /// Parse a C program into an abstract syntax tree.
-///
-///
+#[tracing::instrument(level = "info", skip_all)]
 #[salsa::tracked]
 pub fn parse(db: &dyn Db, file: SourceFile) -> Ast<'_> {
     let mut parser = tree_sitter::Parser::new();
@@ -28,6 +27,7 @@ pub fn parse(db: &dyn Db, file: SourceFile) -> Ast<'_> {
 
 /// the return type for a C function is treated as optional by the grammar, but
 /// we want it to be required.
+#[tracing::instrument(level = "debug", skip_all)]
 fn ensure_return_type(db: &dyn Db, lang: &Language, tree: &Tree, file: SourceFile) {
     let query = tree_sitter::Query::new(
         lang,
@@ -53,6 +53,7 @@ fn ensure_return_type(db: &dyn Db, lang: &Language, tree: &Tree, file: SourceFil
     }
 }
 
+#[tracing::instrument(level = "debug", skip_all)]
 fn check_tree(db: &dyn Db, tree: &Tree, file: SourceFile) {
     let mut cursor = tree.walk();
 
