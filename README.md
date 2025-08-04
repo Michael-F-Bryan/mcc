@@ -4,7 +4,9 @@
 
 ([API Docs][api-docs])
 
-> **TODO:** Write up an interesting description.
+A self-hosting C compiler written in Rust, featuring a complete compilation pipeline from preprocessing to assembly generation with comprehensive test coverage.
+
+This project implements a full C compiler with modern tooling, including tree-sitter-based parsing, [Salsa][salsa] for incremental compilation, and a comprehensive test suite based on the [writing-a-c-compiler-tests](https://github.com/nlsandler/writing-a-c-compiler-tests) framework. The compiler supports most of the C language specification as outlined in *Writing a C Compiler*, from basic lexing and parsing to advanced features like register allocation and optimization passes.
 
 ## License
 
@@ -32,3 +34,4 @@ do their best to avoid them, and welcome help in analysing and fixing them.
 
 [api-docs]: https://michael-f-bryan.github.io/mc
 [crev]: https://github.com/crev-dev/cargo-crev
+[salsa]: https://github.com/salsa-rs/salsa

@@ -1,3 +1,16 @@
 {
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "spellright.language": [
+        "English (Australian)"
+    ],
+    "spellright.documentTypes": [
+        "markdown",
+        "latex",
+        "plaintext"
+    ],
+    "spellright.parserByClass": {
+        "Log": {
+            "parser": "markdown"
+        }
+    }
 }
