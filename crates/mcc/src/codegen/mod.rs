@@ -100,11 +100,43 @@ impl StackAllocator {
     }
 }
 
+/// Fixes up invalid `mov` instructions where both source and destination are
+/// stack operands.
+///
+/// When replacing pseudoregisters with stack addresses, we may end up with
+/// `mov` instructions that have memory addresses as both source and destination
+/// operands. This is invalid assembly, as instructions like `movl -4(%rbp),
+/// -8(%rbp)` will be rejected by the assembler.
+///
+/// The fix is to rewrite such instructions to:
+/// 1. First copy from the source stack location into R10D
+/// 2. Then copy from R10D to the destination stack location
 #[tracing::instrument(level = "debug", skip_all)]
 #[salsa::tracked]
 fn fix_up_instructions<'db>(
-    _db: &'db dyn Db,
+    db: &'db dyn Db,
     function: asm::FunctionDefinition<'db>,
 ) -> asm::FunctionDefinition<'db> {
-    function
+    let mut instructions = Vec::new();
+
+    for instruction in function.instructions(db) {
+        match instruction {
+            asm::Instruction::Mov {
+                src: src @ asm::Operand::Stack(_),
+                dst: dst @ asm::Operand::Stack(_),
+            } => {
+                instructions.push(asm::Instruction::Mov {
+                    src,
+                    dst: asm::Operand::Register(asm::Register::R10),
+                });
+                instructions.push(asm::Instruction::Mov {
+                    src: asm::Operand::Register(asm::Register::R10),
+                    dst,
+                });
+            }
+            other => instructions.push(other),
+        }
+    }
+
+    asm::FunctionDefinition::new(db, function.name(db), instructions, function.span(db))
 }

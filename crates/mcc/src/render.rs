@@ -7,6 +7,7 @@ use target_lexicon::{OperatingSystem, Triple};
 
 use crate::{Db, Text, codegen::asm};
 
+/// Render a set of assembly instructions as a string.
 #[tracing::instrument(level = "debug", skip_all, fields(target = %target))]
 #[salsa::tracked]
 pub fn render_program<'db>(
@@ -21,17 +22,17 @@ pub fn render_program<'db>(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AssemblyRenderer<W> {
+struct AssemblyRenderer<W> {
     target: Triple,
     writer: W,
 }
 
 impl<W: Write> AssemblyRenderer<W> {
-    pub fn new(target: Triple, writer: W) -> Self {
+    fn new(target: Triple, writer: W) -> Self {
         Self { target, writer }
     }
 
-    pub fn program(&mut self, db: &dyn Db, program: asm::Program) -> fmt::Result {
+    fn program(&mut self, db: &dyn Db, program: asm::Program) -> fmt::Result {
         for function in program.functions(db) {
             self.render_function(db, function)?;
             writeln!(self.writer)?;
@@ -44,7 +45,7 @@ impl<W: Write> AssemblyRenderer<W> {
         Ok(())
     }
 
-    pub fn function_name<'a>(&self, name: &'a str) -> Cow<'a, str> {
+    fn function_name<'a>(&self, name: &'a str) -> Cow<'a, str> {
         if matches!(self.target.operating_system, OperatingSystem::MacOSX(_)) {
             format!("_{name}").into()
         } else {
@@ -62,60 +63,64 @@ impl<W: Write> AssemblyRenderer<W> {
 
         writeln!(self.writer, ".globl {name}")?;
         writeln!(self.writer, "{name}:")?;
+        writeln!(self.writer, "pushq %rbp")?;
+        writeln!(self.writer, "movq %rsp, %rbp")?;
 
         for instruction in function.instructions(db) {
             write!(self.writer, "  ")?;
             self.render_instruction(instruction)?;
-            writeln!(self.writer)?;
         }
 
         Ok(())
     }
 
-    pub fn render_instruction(&mut self, instruction: asm::Instruction) -> fmt::Result {
+    fn render_instruction(&mut self, instruction: asm::Instruction) -> fmt::Result {
         match instruction {
-            asm::Instruction::AllocateStack(_size) => {
-                todo!();
+            asm::Instruction::AllocateStack(size) => {
+                writeln!(self.writer, "subq ${size}, %rsp")?;
             }
             asm::Instruction::Mov { src, dst } => {
-                write!(self.writer, "mov ")?;
+                write!(self.writer, "movl ")?;
                 self.operand(src)?;
                 write!(self.writer, ", ")?;
                 self.operand(dst)?;
+                writeln!(self.writer)?;
             }
             asm::Instruction::Unary { op, operand } => {
                 self.unary_operator(op)?;
                 write!(self.writer, " ")?;
                 self.operand(operand)?;
+                writeln!(self.writer)?;
             }
             asm::Instruction::Ret => {
-                write!(self.writer, "ret")?;
+                writeln!(self.writer, "movq %rbp, %rsp")?;
+                writeln!(self.writer, "popq %rbp")?;
+                writeln!(self.writer, "ret")?;
             }
         }
 
         Ok(())
     }
 
-    pub fn operand(&mut self, operand: asm::Operand) -> fmt::Result {
+    fn operand(&mut self, operand: asm::Operand) -> fmt::Result {
         match operand {
             asm::Operand::Imm(imm) => write!(self.writer, "${imm}"),
             asm::Operand::Register(reg) => self.register(reg),
-            asm::Operand::Pseudo(pseudo) => write!(self.writer, "${pseudo}"),
-            asm::Operand::Stack(stack) => write!(self.writer, "${stack}"),
+            asm::Operand::Stack(stack) => write!(self.writer, "{stack}(%rbp)"),
         }
     }
 
-    pub fn register(&mut self, reg: asm::Register) -> fmt::Result {
+    fn register(&mut self, reg: asm::Register) -> fmt::Result {
         match reg {
             asm::Register::AX => write!(self.writer, "%eax"),
-            asm::Register::R10 => write!(self.writer, "%r10"),
+            asm::Register::R10 => write!(self.writer, "%r10d"),
         }
     }
 
-    pub fn unary_operator(&mut self, op: asm::UnaryOperator) -> fmt::Result {
+    fn unary_operator(&mut self, op: asm::UnaryOperator) -> fmt::Result {
         match op {
-            asm::UnaryOperator::Neg => write!(self.writer, "neg"),
-            asm::UnaryOperator::Not => write!(self.writer, "not"),
+            asm::UnaryOperator::Neg => write!(self.writer, "negl"),
+            asm::UnaryOperator::Not => write!(self.writer, "notl"),
         }
     }
 }

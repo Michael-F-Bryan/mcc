@@ -28,7 +28,6 @@ pub enum Instruction {
 pub enum Operand {
     Imm(i32),
     Register(Register),
-    Pseudo(u32),
     Stack(u32),
 }
 

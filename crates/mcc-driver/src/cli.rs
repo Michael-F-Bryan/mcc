@@ -1,7 +1,10 @@
 use std::{ffi::OsString, ops::ControlFlow, path::PathBuf, str::FromStr, sync::LazyLock};
 
 use clap::{ColorChoice as ClapColor, Parser};
-use codespan_reporting::term::{self, termcolor::ColorChoice as TermColor};
+use codespan_reporting::{
+    diagnostic::Severity,
+    term::{self, termcolor::ColorChoice as TermColor},
+};
 use mcc::{
     Files, Text, codegen::asm, diagnostics::Diagnostics, lowering::tacky, target_lexicon::Triple,
     types::Ast,
@@ -84,10 +87,16 @@ impl Cli {
         self.emit_diagnostics(&files, &cb.diags)?;
 
         if let Some(assembly) = cb.assembly {
-            let dest = self
-                .output
-                .unwrap_or_else(|| self.input.with_extension("s"));
-            std::fs::write(dest, assembly)?;
+            if self.keep_assembly {
+                let dest = self
+                    .output
+                    .unwrap_or_else(|| self.input.with_extension("s"));
+                std::fs::write(dest, assembly)?;
+            }
+        }
+
+        if cb.diags.iter().any(|d| d.0.severity >= Severity::Error) {
+            return Err(anyhow::anyhow!("compilation failed"));
         }
 
         Ok(())

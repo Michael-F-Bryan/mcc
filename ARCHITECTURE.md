@@ -21,19 +21,22 @@ The project is organized into several crates, each with a specific responsibilit
 
 The main compilation stages are implemented as separate modules:
 
-- **`preprocessing`** - Handles C preprocessor directives using external C compiler
+- **`preprocessing`** - Runs the system C preprocessor (via `cc -E -P`)
 - **`parsing`** - Tree-sitter-based parsing with error recovery and validation
 - **`lowering`** - Transforms AST into Three Address Code (TAC) intermediate representation
-- **`codegen`** - Generates target assembly from TAC
-- **`assembling`** - Orchestrates assembly and linking with external tools
+- **`codegen`** - Lowers TAC to a target-agnostic assembly IR (`codegen::asm`)
+- **`render`** - Renders the assembly IR to textual assembly, with OS-specific conventions (e.g. leading underscore on macOS symbols)
+- **`assembling`** - Invokes the system compiler to assemble the emitted assembly file. Note: currently assembles to an object file; full linking is not implemented yet
 
 ### Data Flow
 
 The compilation follows a linear pipeline where each stage consumes the output of the previous stage:
 
 ```
-Source File → Preprocessing → Parsing → Lowering → Code Generation → Assembly → Linking
+Source File → Preprocessing → Parsing → Lowering (TAC) → Codegen (ASM IR) → Rendering (assembly text) → Assembling (object file)
 ```
+
+Linking is planned but not yet implemented. The `assembling` stage currently produces an object file using the system compiler and returns early.
 
 Each stage is implemented as a Salsa tracked function, enabling incremental compilation and caching of intermediate results.
 
@@ -41,9 +44,10 @@ Each stage is implemented as a Salsa tracked function, enabling incremental comp
 
 - **`SourceFile`** - Represents a source file with path and contents
 - **`Ast`** - Wraps the tree-sitter parse tree with strongly-typed accessors
-- **`tacky::Program`** - Three Address Code intermediate representation
-- **`asm::Program`** - Target-specific assembly representation
-- **`Database`** - Salsa database for incremental compilation
+- **`lowering::tacky::Program`** - Three Address Code (TAC) IR
+- **`codegen::asm::Program`** - Assembly IR (prior to textual rendering)
+- **`Database` / `Db`** - Salsa database/trait for incremental compilation
+- **`Diagnostics`** - Salsa accumulator newtype for collecting `codespan-reporting` diagnostics; stages push diagnostics instead of failing
 - **`Text`** - Reference-counted string type for efficient memory sharing
 - **`Files`** - File collection for error reporting and source management
 
@@ -53,7 +57,7 @@ Each stage is implemented as a Salsa tracked function, enabling incremental comp
 
 **Core Compiler** (`mcc`): Contains all compilation logic but depends on the syntax layer for AST access. The core crate is structured to minimize dependencies between compilation stages.
 
-**Driver** (`mcc-driver`): Orchestrates the compilation pipeline and handles user interaction. Depends on the core crate but doesn't contain compilation logic.
+**Driver** (`mcc-driver`): Orchestrates the compilation pipeline and handles user interaction. Exposes a `Callbacks` trait fired after each stage (`after_parse`, `after_lower`, `after_codegen`, `after_render_assembly`, `after_compile`). Depends on the core crate but doesn't contain compilation logic.
 
 ## Cross-Cutting Concerns
 
@@ -76,7 +80,7 @@ The project includes a comprehensive test framework based on the writing-a-c-com
 
 ### Target Support
 
-The compiler targets x86_64 by default but is designed to support multiple architectures through the target-lexicon crate. Assembly generation is target-specific, while the intermediate representations are target-agnostic.
+The compiler targets x86_64 by default but is designed to support multiple architectures through the `target-lexicon` crate. The renderer applies OS-specific conventions (e.g. macOS symbol prefixes, GNU stack note on Linux). Assembly generation is target-specific, while the intermediate representations are target-agnostic.
 
 ## Architectural Invariants
 
