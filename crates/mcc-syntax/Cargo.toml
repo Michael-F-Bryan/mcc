@@ -11,7 +11,7 @@ version.workspace = true
 
 [dependencies]
 tree-sitter = { workspace = true }
-type-sitter = { version = "0.7.4", default-features = false }
+type-sitter = { workspace = true }
 
 [build-dependencies]
 prettyplease = "0.2.36"
@@ -19,4 +19,4 @@ proc-macro2 = "1.0.95"
 quote = "1.0.40"
 syn = "2.0.104"
 tree-sitter-c = { workspace = true }
-type-sitter-gen = "0.7.4"
+type-sitter-gen = "0.8.0"

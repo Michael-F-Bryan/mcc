@@ -2,7 +2,7 @@
 
 use codespan_reporting::diagnostic::Label;
 use mcc_syntax::{Span, ast};
-use type_sitter::{HasChild, HasChildren, Node, TreeCursor};
+use type_sitter::{HasChild, HasChildren, HasOptionalChild, Node, TreeCursor};
 
 use crate::{
     Db,
@@ -123,9 +123,9 @@ impl<'db> FunctionContext<'db> {
         let mut cursor: TreeCursor<'db> = body.walk();
 
         for child in body
-            .raw()
-            .children(&mut cursor.0)
-            .filter_map(|c| ast::Statement::try_from_raw(c).ok())
+            .children(&mut cursor)
+            .filter_map(|c| c.ok())
+            .filter_map(|c| c.as_statement())
         {
             self.lower_statement(child);
         }
@@ -141,11 +141,10 @@ impl<'db> FunctionContext<'db> {
     }
 
     fn lower_return_statement(&mut self, r: ast::ReturnStatement<'db>) -> Option<()> {
-        let mut cursor: TreeCursor<'db> = r.walk();
         match r
-            .raw()
-            .children(&mut cursor.0)
-            .find_map(|c| ast::Expression::try_from_raw(c).ok())
+            .child()
+            .and_then(|c| c.ok())
+            .and_then(|c| c.as_expression())
         {
             Some(expr) => {
                 let ret = self.lower_expression(expr)?;

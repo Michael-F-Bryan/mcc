@@ -19,7 +19,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tree-sitter = { workspace = true }
 tree-sitter-c = { workspace = true }
-type-sitter = { version = "0.7.4", default-features = false }
+type-sitter = { workspace = true }
 
 [dev-dependencies]
 insta = "1.43.1"

@@ -809,6 +809,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 
 [[package]]
+name = "rustc-stable-hash"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "781442f29170c5c93b7185ad559492601acdc71d5bb0706f5868094f45cfcd08"
+
+[[package]]
 name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1196,17 +1202,18 @@ checksum = "c4013970217383f67b18aef68f6fb2e8d409bc5755227092d32efb0422ba24b8"
 
 [[package]]
 name = "type-sitter"
-version = "0.7.4"
-source = "git+ssh://git@github.com/Michael-F-Bryan/type-sitter.git?branch=nested-enums#0a135fa682462a3110812a57842fd3b5355f5599"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8a8b8f2e3b489a067f445e8d7a0515af6b2c144d4dac5396c8839c7c795f164"
 dependencies = [
  "type-sitter-lib",
 ]
 
 [[package]]
 name = "type-sitter-gen"
-version = "0.7.4"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46b88bfc83b309049c51813565cf18503f40b53aab009cbc9cc1bbdfee0b33d6"
+checksum = "d840736825a9c2a6d26743923d3d7e69e00ed712f37c571fc31a833c6d3a53c3"
 dependencies = [
  "cc",
  "check_keyword",
@@ -1220,6 +1227,7 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
+ "rustc-stable-hash",
  "serde",
  "serde_json",
  "slice-group-by",
@@ -1231,8 +1239,9 @@ dependencies = [
 
 [[package]]
 name = "type-sitter-lib"
-version = "0.7.4"
-source = "git+ssh://git@github.com/Michael-F-Bryan/type-sitter.git?branch=nested-enums#0a135fa682462a3110812a57842fd3b5355f5599"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62433d4c167772241ccc153de83f263a7b1e92113787a096deb045bb0dafde25"
 dependencies = [
  "streaming-iterator",
  "tree-sitter",
