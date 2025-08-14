@@ -1,0 +1,5 @@
+---
+source: crates/mcc/src/types.rs
+expression: formatted
+---
+()

@@ -1,8 +1,5 @@
 ---
 source: crates/mcc/src/types.rs
-assertion_line: 154
 expression: formatted
 ---
-(a 
-  (b 
-    c))
+(a)
