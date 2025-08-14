@@ -7,6 +7,8 @@ use std::{
 use anyhow::Error;
 use libtest_mimic::{Failed, Trial};
 use mcc::{Text, diagnostics::Diagnostics, types::SourceFile};
+use mcc_driver::{Config as DriverConfig, run as driver_run};
+use std::ops::ControlFlow;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -82,95 +84,76 @@ impl TestCase {
 
         Trial::test(name, move || {
             let db = mcc::Database::default();
-
             let temp = tempfile::tempdir()?;
             let target = mcc::default_target();
             let src = std::fs::read_to_string(&path)?;
-            let path = Text::from(path.display().to_string());
+            let path_text = Text::from(path.display().to_string());
             let kind_str = kind.invalid_reason();
 
-            let preprocessed = mcc::preprocess(
-                &db,
-                cc.clone(),
-                SourceFile::new(&db, path.clone(), src.into()),
-            )
-            .unwrap();
+            let source_file = SourceFile::new(&db, path_text, src.into());
 
-            let source_file = SourceFile::new(&db, path, preprocessed);
-            let ast = mcc::parse(&db, source_file);
-            eprintln!("{}", ast.sexpr(&db));
-            let diags = mcc::parse::accumulated::<Diagnostics>(&db, source_file);
+            let output_path = temp.path().join("output_bin");
 
-            match (diags.as_slice(), kind_str) {
-                ([_, ..], Some("lex" | "parse")) => {
-                    // Expected error
-                    return Ok(());
-                }
-                ([], _) => {
-                    // No errors
-                }
-                _ => {
-                    return Err(Failed::from(format!(
-                        "expected no errors, but got {diags:#?}"
-                    )));
-                }
-            }
-
-            let tacky = mcc::lowering::lower(&db, ast, source_file);
-            let diags = mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, source_file);
-            match (diags.as_slice(), kind_str) {
-                ([_, ..], Some("tacky")) => {
-                    // Expected error
-                    return Ok(());
-                }
-                ([], _) => {
-                    // No errors
-                }
-                _ => {
-                    return Err(Failed::from(format!(
-                        "expected no errors, but got {diags:#?}"
-                    )));
-                }
-            }
-
-            let assembly = mcc::codegen::generate_assembly(&db, tacky, target.clone());
-            let diags = mcc::codegen::generate_assembly::accumulated::<Diagnostics>(
-                &db,
-                tacky,
-                target.clone(),
-            );
-            match (diags.as_slice(), kind_str) {
-                ([_, ..], Some("codegen")) => {
-                    // Expected error
-                    return Ok(());
-                }
-                ([], _) => {
-                    // No errors
-                }
-                _ => {
-                    return Err(Failed::from(format!(
-                        "expected no errors, but got {diags:#?}"
-                    )));
-                }
-            }
-
-            let asm = temp.path().join("assembly.s");
-            std::fs::write(&asm, assembly)?;
-
-            let object_code = temp.path().join("object_code.o");
-
-            if let Err(e) =
-                mcc::assemble_and_link(&db, cc.clone(), asm, object_code.clone(), target.clone())
-            {
-                if let Some("codegen") = kind_str {
-                    // Expected error
-                    return Ok(());
-                } else {
-                    return Err(Failed::from(e));
-                }
+            let mut cb = Callbacks {
+                expected: kind_str.map(|s| s.to_string()),
+                parse_diags: Vec::new(),
+                lower_diags: Vec::new(),
+                codegen_diags: Vec::new(),
+                render_diags: Vec::new(),
             };
 
+            let cfg = DriverConfig {
+                db,
+                target,
+                cc: cc.clone(),
+                output: Some(output_path.clone()),
+                input: source_file,
+            };
+
+            match driver_run(&mut cb, cfg) {
+                Err(e) => {
+                    if let Some("codegen") = kind_str {
+                        return Ok(());
+                    }
+                    return Err(Failed::from(e));
+                }
+                Ok(()) => match kind_str {
+                    Some("lex" | "parse") => {
+                        if !cb.parse_diags.is_empty() {
+                            return Ok(());
+                        }
+                    }
+                    Some("tacky") => {
+                        if !cb.lower_diags.is_empty() {
+                            return Ok(());
+                        }
+                    }
+                    Some("codegen") => {
+                        if !cb.codegen_diags.is_empty() || !cb.render_diags.is_empty() {
+                            return Ok(());
+                        }
+                    }
+                    None => {
+                        if !cb.parse_diags.is_empty()
+                            || !cb.lower_diags.is_empty()
+                            || !cb.codegen_diags.is_empty()
+                            || !cb.render_diags.is_empty()
+                        {
+                            return Err(Failed::from(
+                                "expected no errors, but diagnostics were emitted",
+                            ));
+                        }
+                    }
+                    Some(other) => {
+                        return Err(Failed::from(format!("unknown invalid stage: {other}")));
+                    }
+                },
+            }
+
+            dbg!(&cb);
+
             if let Kind::Invalid(reason) = kind {
+                // If we reached here without early return, then expected error didn't occur
                 return Err(Failed::from(format!(
                     "expected error at {reason}, but compilation succeeded"
                 )));
@@ -215,6 +198,70 @@ impl FromStr for Kind {
                 Ok(Kind::Invalid(s.trim_start_matches("invalid_").to_string()))
             }
             _ => anyhow::bail!("invalid kind: {}", s),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Callbacks {
+    expected: Option<String>,
+    parse_diags: Vec<Diagnostics>,
+    lower_diags: Vec<Diagnostics>,
+    codegen_diags: Vec<Diagnostics>,
+    render_diags: Vec<Diagnostics>,
+}
+
+impl mcc_driver::Callbacks for Callbacks {
+    fn after_parse<'db>(
+        &mut self,
+        _db: &'db dyn mcc::Db,
+        _source_file: mcc::types::SourceFile,
+        _ast: mcc::types::Ast<'db>,
+        diags: Vec<&Diagnostics>,
+    ) -> ControlFlow<()> {
+        self.parse_diags.extend(diags.into_iter().cloned());
+        match (self.expected.as_deref(), self.parse_diags.is_empty()) {
+            (Some("lex" | "parse"), false) => ControlFlow::Break(()),
+            _ => ControlFlow::Continue(()),
+        }
+    }
+
+    fn after_lower<'db>(
+        &mut self,
+        _db: &'db dyn mcc::Db,
+        _tacky: mcc::lowering::tacky::Program<'db>,
+        diags: Vec<&Diagnostics>,
+    ) -> ControlFlow<()> {
+        self.lower_diags.extend(diags.into_iter().cloned());
+        match (self.expected.as_deref(), self.lower_diags.is_empty()) {
+            (Some("tacky"), false) => ControlFlow::Break(()),
+            _ => ControlFlow::Continue(()),
+        }
+    }
+
+    fn after_codegen<'db>(
+        &mut self,
+        _db: &'db dyn mcc::Db,
+        _asm: mcc::codegen::asm::Program<'db>,
+        diags: Vec<&Diagnostics>,
+    ) -> ControlFlow<()> {
+        self.codegen_diags.extend(diags.into_iter().cloned());
+        match (self.expected.as_deref(), self.codegen_diags.is_empty()) {
+            (Some("codegen"), false) => ControlFlow::Break(()),
+            _ => ControlFlow::Continue(()),
+        }
+    }
+
+    fn after_render_assembly(
+        &mut self,
+        _db: &dyn mcc::Db,
+        _asm: Text,
+        diags: Vec<&Diagnostics>,
+    ) -> ControlFlow<()> {
+        self.render_diags.extend(diags.into_iter().cloned());
+        match (self.expected.as_deref(), self.render_diags.is_empty()) {
+            (Some("codegen"), false) => ControlFlow::Break(()),
+            _ => ControlFlow::Continue(()),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, ffi::OsStr, sync::Arc};
 
 /// A reference-counted string.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -25,6 +25,12 @@ impl From<Cow<'_, str>> for Text {
 impl From<String> for Text {
     fn from(s: String) -> Self {
         Self(s.into())
+    }
+}
+
+impl AsRef<OsStr> for Text {
+    fn as_ref(&self) -> &OsStr {
+        self.as_str().as_ref()
     }
 }
 

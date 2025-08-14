@@ -8,8 +8,11 @@ mod files;
 pub mod lowering;
 mod parsing;
 mod preprocessing;
+pub mod render;
 mod text;
 pub mod types;
+
+use std::fmt::{self, Debug};
 
 pub use crate::{
     assembling::assemble_and_link, cmd::CommandError, files::Files, parsing::parse,
@@ -32,6 +35,14 @@ pub struct Database {
 
 #[salsa::db]
 impl salsa::Database for Database {}
+
+impl Debug for Database {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Database { storage: _ } = self;
+
+        f.debug_struct("Database").finish_non_exhaustive()
+    }
+}
 
 pub fn default_target() -> Triple {
     Triple {
