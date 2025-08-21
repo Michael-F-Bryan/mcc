@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     fmt::{self, Display, Formatter},
     path::{Path, PathBuf},
     str::FromStr,
@@ -7,7 +8,7 @@ use std::{
 use anyhow::Error;
 use libtest_mimic::{Failed, Trial};
 use mcc::{Text, diagnostics::Diagnostics, types::SourceFile};
-use mcc_driver::{Config as DriverConfig, run as driver_run};
+use mcc_driver::{Config as DriverConfig, Outcome, run as driver_run};
 use std::ops::ControlFlow;
 
 #[derive(Debug, Clone)]
@@ -48,6 +49,9 @@ pub fn discover(test_root: &Path) -> Result<Vec<TestCase>, Error> {
             for entry in path.read_dir()? {
                 let entry = entry?;
                 let path = entry.path();
+                if path.extension() != Some(OsStr::new("c")) {
+                    continue;
+                }
                 let name = path.file_stem().unwrap().to_str().unwrap();
                 let name = format!("chapter_{chapter}::{kind}::{name}");
 
@@ -96,10 +100,6 @@ impl TestCase {
 
             let mut cb = Callbacks {
                 expected: kind_str.map(|s| s.to_string()),
-                parse_diags: Vec::new(),
-                lower_diags: Vec::new(),
-                codegen_diags: Vec::new(),
-                render_diags: Vec::new(),
             };
 
             let cfg = DriverConfig {
@@ -111,46 +111,18 @@ impl TestCase {
             };
 
             match driver_run(&mut cb, cfg) {
-                Err(e) => {
-                    if let Some("codegen") = kind_str {
-                        return Ok(());
+                Outcome::Ok => {
+                    // Compilation succeeded and we didn't error out
+                    if !output_path.exists() {
+                        return Err(Failed::from(anyhow::anyhow!(
+                            "compilation succeeded but output file does not exist"
+                        )));
                     }
-                    return Err(Failed::from(e));
                 }
-                Ok(()) => match kind_str {
-                    Some("lex" | "parse") => {
-                        if !cb.parse_diags.is_empty() {
-                            return Ok(());
-                        }
-                    }
-                    Some("tacky") => {
-                        if !cb.lower_diags.is_empty() {
-                            return Ok(());
-                        }
-                    }
-                    Some("codegen") => {
-                        if !cb.codegen_diags.is_empty() || !cb.render_diags.is_empty() {
-                            return Ok(());
-                        }
-                    }
-                    None => {
-                        if !cb.parse_diags.is_empty()
-                            || !cb.lower_diags.is_empty()
-                            || !cb.codegen_diags.is_empty()
-                            || !cb.render_diags.is_empty()
-                        {
-                            return Err(Failed::from(
-                                "expected no errors, but diagnostics were emitted",
-                            ));
-                        }
-                    }
-                    Some(other) => {
-                        return Err(Failed::from(format!("unknown invalid stage: {other}")));
-                    }
-                },
+                Outcome::EarlyReturn(Ok(())) => return Ok(()),
+                Outcome::EarlyReturn(Err(e)) => return Err(Failed::from(e)),
+                Outcome::Err(e) => return Err(Failed::from(e)),
             }
-
-            dbg!(&cb);
 
             if let Kind::Invalid(reason) = kind {
                 // If we reached here without early return, then expected error didn't occur
@@ -205,24 +177,26 @@ impl FromStr for Kind {
 #[derive(Debug, Clone)]
 struct Callbacks {
     expected: Option<String>,
-    parse_diags: Vec<Diagnostics>,
-    lower_diags: Vec<Diagnostics>,
-    codegen_diags: Vec<Diagnostics>,
-    render_diags: Vec<Diagnostics>,
 }
 
 impl mcc_driver::Callbacks for Callbacks {
+    type Output = Result<(), Error>;
+
     fn after_parse<'db>(
         &mut self,
         _db: &'db dyn mcc::Db,
         _source_file: mcc::types::SourceFile,
         _ast: mcc::types::Ast<'db>,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.parse_diags.extend(diags.into_iter().cloned());
-        match (self.expected.as_deref(), self.parse_diags.is_empty()) {
-            (Some("lex" | "parse"), false) => ControlFlow::Break(()),
-            _ => ControlFlow::Continue(()),
+    ) -> ControlFlow<Result<(), Error>> {
+        if let Some("lex" | "parse") = self.expected.as_deref() {
+            if diags.is_empty() {
+                ControlFlow::Break(Err(anyhow::anyhow!("expected lex/parse error")))
+            } else {
+                ControlFlow::Break(Ok(()))
+            }
+        } else {
+            ControlFlow::Continue(())
         }
     }
 
@@ -231,11 +205,15 @@ impl mcc_driver::Callbacks for Callbacks {
         _db: &'db dyn mcc::Db,
         _tacky: mcc::lowering::tacky::Program<'db>,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.lower_diags.extend(diags.into_iter().cloned());
-        match (self.expected.as_deref(), self.lower_diags.is_empty()) {
-            (Some("tacky"), false) => ControlFlow::Break(()),
-            _ => ControlFlow::Continue(()),
+    ) -> ControlFlow<Result<(), Error>> {
+        if let Some("tacky") = self.expected.as_deref() {
+            if diags.is_empty() {
+                ControlFlow::Break(Err(anyhow::anyhow!("expected tacky error")))
+            } else {
+                ControlFlow::Break(Ok(()))
+            }
+        } else {
+            ControlFlow::Continue(())
         }
     }
 
@@ -244,11 +222,15 @@ impl mcc_driver::Callbacks for Callbacks {
         _db: &'db dyn mcc::Db,
         _asm: mcc::codegen::asm::Program<'db>,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.codegen_diags.extend(diags.into_iter().cloned());
-        match (self.expected.as_deref(), self.codegen_diags.is_empty()) {
-            (Some("codegen"), false) => ControlFlow::Break(()),
-            _ => ControlFlow::Continue(()),
+    ) -> ControlFlow<Result<(), Error>> {
+        if let Some("codegen") = self.expected.as_deref() {
+            if diags.is_empty() {
+                ControlFlow::Break(Err(anyhow::anyhow!("expected codegen error")))
+            } else {
+                ControlFlow::Break(Ok(()))
+            }
+        } else {
+            ControlFlow::Continue(())
         }
     }
 
@@ -257,11 +239,15 @@ impl mcc_driver::Callbacks for Callbacks {
         _db: &dyn mcc::Db,
         _asm: Text,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.render_diags.extend(diags.into_iter().cloned());
-        match (self.expected.as_deref(), self.render_diags.is_empty()) {
-            (Some("codegen"), false) => ControlFlow::Break(()),
-            _ => ControlFlow::Continue(()),
+    ) -> ControlFlow<Result<(), Error>> {
+        if let Some("render") = self.expected.as_deref() {
+            if diags.is_empty() {
+                ControlFlow::Break(Err(anyhow::anyhow!("expected render error")))
+            } else {
+                ControlFlow::Break(Ok(()))
+            }
+        } else {
+            ControlFlow::Continue(())
         }
     }
 }

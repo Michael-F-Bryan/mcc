@@ -1,2 +1,3 @@
 [alias]
 xtask = "run --quiet --package=xtask --"
+mcc = "run --quiet --package=mcc-driver --"

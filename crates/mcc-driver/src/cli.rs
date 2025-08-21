@@ -11,7 +11,7 @@ use mcc::{
 };
 use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
-use crate::{Callbacks, callbacks::Config};
+use crate::{Callbacks, Config};
 
 const LOG_FILTERS: &[&str] = &["warn", "mcc=debug", "mcc-syntax=debug", "mcc-driver=debug"];
 
@@ -82,9 +82,10 @@ impl Cli {
             assembly: None,
         };
 
-        crate::callbacks::run(&mut cb, cfg)?;
-
-        self.emit_diagnostics(&files, &cb.diags)?;
+        if let Err(e) = crate::callbacks::run(&mut cb, cfg).to_result() {
+            self.emit_diagnostics(&files, &cb.diags)?;
+            return Err(e);
+        }
 
         if let Some(assembly) = cb.assembly {
             if self.keep_assembly {
@@ -128,6 +129,8 @@ struct DefaultCallbacks {
 }
 
 impl Callbacks for DefaultCallbacks {
+    type Output = ();
+
     fn after_parse<'db>(
         &mut self,
         _db: &'db dyn mcc::Db,
@@ -137,7 +140,7 @@ impl Callbacks for DefaultCallbacks {
     ) -> ControlFlow<()> {
         self.diags.extend(diags.into_iter().cloned());
 
-        if self.stop_at.parse || self.stop_at.lex {
+        if self.stop_at.parse || self.stop_at.lex || !self.diags.is_empty() {
             ControlFlow::Break(())
         } else {
             ControlFlow::Continue(())
@@ -152,7 +155,7 @@ impl Callbacks for DefaultCallbacks {
     ) -> ControlFlow<()> {
         self.diags.extend(diags.into_iter().cloned());
 
-        if self.stop_at.tacky {
+        if self.stop_at.tacky || !self.diags.is_empty() {
             ControlFlow::Break(())
         } else {
             ControlFlow::Continue(())
@@ -167,7 +170,7 @@ impl Callbacks for DefaultCallbacks {
     ) -> ControlFlow<()> {
         self.diags.extend(diags.into_iter().cloned());
 
-        if self.stop_at.codegen {
+        if self.stop_at.codegen || !self.diags.is_empty() {
             ControlFlow::Break(())
         } else {
             ControlFlow::Continue(())
@@ -182,7 +185,12 @@ impl Callbacks for DefaultCallbacks {
     ) -> ControlFlow<()> {
         self.diags.extend(diags.into_iter().cloned());
         self.assembly = Some(asm);
-        ControlFlow::Continue(())
+
+        if !self.diags.is_empty() {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
     }
 
     fn after_compile(&mut self, _db: &dyn mcc::Db, _binary: PathBuf) -> ControlFlow<()> {

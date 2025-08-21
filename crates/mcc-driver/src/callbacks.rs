@@ -22,13 +22,46 @@ pub struct Config {
     pub input: SourceFile,
 }
 
+#[derive(Debug)]
+pub enum Outcome<Ret> {
+    /// The compilation succeeded.
+    Ok,
+    /// The compilation failed.
+    Err(anyhow::Error),
+    /// The compilation returned early.
+    EarlyReturn(Ret),
+}
+
+impl<Ret> Outcome<Ret> {
+    pub fn to_result_with(
+        self,
+        f: impl FnOnce(Ret) -> Result<(), anyhow::Error>,
+    ) -> Result<(), anyhow::Error> {
+        match self {
+            Self::Ok => Ok(()),
+            Self::Err(e) => Err(e),
+            Self::EarlyReturn(ret) => f(ret),
+        }
+    }
+
+    pub fn to_result(self) -> Result<(), anyhow::Error> {
+        self.to_result_with(|_| Err(anyhow::anyhow!("returned early")))
+    }
+}
+
+impl<Ret> From<anyhow::Error> for Outcome<Ret> {
+    fn from(err: anyhow::Error) -> Self {
+        Self::Err(err)
+    }
+}
+
 /// Run the compiler.
 ///
 /// This function is the entry point for the compiler. It will run the compiler
 /// through the various stages of compilation, and call the appropriate
 /// callbacks at each stage.
 #[tracing::instrument(level = "info", skip_all)]
-pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> anyhow::Result<()> {
+pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
     let Config {
         db,
         target,
@@ -37,66 +70,86 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> anyhow::Result<()> {
         input,
     } = cfg;
 
-    let temp = tempfile::tempdir()?;
+    let temp =
+        match tempfile::tempdir().map_err(|e| anyhow::anyhow!("failed to create temp dir: {e}")) {
+            Ok(temp) => temp,
+            Err(e) => return Outcome::Err(e),
+        };
 
-    let preprocessed = mcc::preprocess(&db, cc.clone(), input)?;
+    let preprocessed = match mcc::preprocess(&db, cc.clone(), input)
+        .map_err(|e| anyhow::anyhow!("failed to preprocess: {e}"))
+    {
+        Ok(preprocessed) => preprocessed,
+        Err(e) => return Outcome::Err(e),
+    };
 
     let preprocessed_path = temp.path().join("preprocessed.c");
-    std::fs::write(&preprocessed_path, preprocessed)?;
+
+    if let Err(e) = std::fs::write(&preprocessed_path, preprocessed) {
+        return Outcome::Err(anyhow::Error::new(e));
+    }
 
     let ast = mcc::parse(&db, input);
     let diags: Vec<&Diagnostics> = mcc::parse::accumulated::<Diagnostics>(&db, input);
-    if cb.after_parse(&db, input, ast, diags).is_break() {
-        return Ok(());
+    if let ControlFlow::Break(ret) = cb.after_parse(&db, input, ast, diags) {
+        return Outcome::EarlyReturn(ret);
     }
 
     let tacky = mcc::lowering::lower(&db, ast, input);
     let diags: Vec<&Diagnostics> =
         mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, input);
-    if cb.after_lower(&db, tacky, diags).is_break() {
-        return Ok(());
+    if let ControlFlow::Break(ret) = cb.after_lower(&db, tacky, diags) {
+        return Outcome::EarlyReturn(ret);
     }
 
     let program = mcc::codegen::generate_assembly(&db, tacky);
     let diags: Vec<&Diagnostics> =
         mcc::codegen::generate_assembly::accumulated::<Diagnostics>(&db, tacky);
 
-    if cb.after_codegen(&db, program, diags).is_break() {
-        return Ok(());
+    if let ControlFlow::Break(ret) = cb.after_codegen(&db, program, diags) {
+        return Outcome::EarlyReturn(ret);
     }
 
-    let assembly = mcc::render::render_program(&db, program, target.clone())?;
+    let assembly = match mcc::render::render_program(&db, program, target.clone()) {
+        Ok(assembly) => assembly,
+        Err(e) => return Outcome::Err(e.into()),
+    };
     let diags: Vec<&Diagnostics> =
         mcc::render::render_program::accumulated::<Diagnostics>(&db, program, target.clone());
 
-    if cb
-        .after_render_assembly(&db, assembly.clone(), diags)
-        .is_break()
-    {
-        return Ok(());
+    if let ControlFlow::Break(ret) = cb.after_render_assembly(&db, assembly.clone(), diags) {
+        return Outcome::EarlyReturn(ret);
     }
 
     let asm = temp.path().join("assembly.s");
-    std::fs::write(&asm, assembly)?;
+    if let Err(e) = std::fs::write(&asm, assembly) {
+        return Outcome::Err(e.into());
+    }
 
     let output_path = output
         .clone()
         .unwrap_or_else(|| Path::new(input.path(&db)).with_extension(""));
 
-    mcc::assemble_and_link(&db, cc.clone(), asm, output_path.clone(), target.clone())?;
+    if let Err(e) =
+        mcc::assemble_and_link(&db, cc.clone(), asm, output_path.clone(), target.clone())
+    {
+        return Outcome::Err(e.into());
+    }
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let perms = std::fs::Permissions::from_mode(0o755);
-        std::fs::set_permissions(&output_path, perms)?;
+        if let Err(e) = std::fs::set_permissions(&output_path, perms) {
+            return Outcome::Err(e.into());
+        }
     }
 
-    if cb.after_compile(&db, output_path).is_break() {
-        return Ok(());
+    if let ControlFlow::Break(ret) = cb.after_compile(&db, output_path) {
+        return Outcome::EarlyReturn(ret);
     }
 
-    Ok(())
+    Outcome::Ok
 }
 
 /// Callbacks fired at various stages of compilation.
@@ -112,6 +165,8 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> anyhow::Result<()> {
 /// If a callback returns `ControlFlow::Break`, the compiler will stop running
 /// and return early.
 pub trait Callbacks {
+    type Output;
+
     /// Called after parsing the file.
     fn after_parse<'db>(
         &mut self,
@@ -119,7 +174,7 @@ pub trait Callbacks {
         _source_file: mcc::types::SourceFile,
         _ast: Ast<'db>,
         _diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
+    ) -> ControlFlow<Self::Output> {
         ControlFlow::Continue(())
     }
 
@@ -129,7 +184,7 @@ pub trait Callbacks {
         _db: &'db dyn mcc::Db,
         _tacky: tacky::Program<'db>,
         _diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
+    ) -> ControlFlow<Self::Output> {
         ControlFlow::Continue(())
     }
 
@@ -139,7 +194,7 @@ pub trait Callbacks {
         _db: &'db dyn mcc::Db,
         _asm: asm::Program<'db>,
         _diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
+    ) -> ControlFlow<Self::Output> {
         ControlFlow::Continue(())
     }
 
@@ -149,11 +204,11 @@ pub trait Callbacks {
         _db: &dyn mcc::Db,
         _asm: Text,
         _diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
+    ) -> ControlFlow<Self::Output> {
         ControlFlow::Continue(())
     }
 
-    fn after_compile(&mut self, _db: &dyn mcc::Db, _binary: PathBuf) -> ControlFlow<()> {
+    fn after_compile(&mut self, _db: &dyn mcc::Db, _binary: PathBuf) -> ControlFlow<Self::Output> {
         ControlFlow::Continue(())
     }
 }

@@ -2,6 +2,6 @@ mod callbacks;
 mod cli;
 
 pub use crate::{
-    callbacks::{Callbacks, Config, run},
+    callbacks::{Callbacks, Config, Outcome, run},
     cli::main,
 };
