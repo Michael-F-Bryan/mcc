@@ -40,6 +40,8 @@ jobs:
         run: cargo build --workspace --verbose --locked
       - name: Test
         run: cargo nextest run --workspace --verbose --locked
+        env:
+          CC: clang
       - name: Doc Tests
         run: cargo test --doc --workspace --verbose --locked
 
