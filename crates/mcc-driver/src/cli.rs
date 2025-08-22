@@ -1,5 +1,6 @@
 use std::{ffi::OsString, ops::ControlFlow, path::PathBuf, str::FromStr, sync::LazyLock};
 
+use anyhow::Context;
 use clap::{ColorChoice as ClapColor, Parser};
 use codespan_reporting::{
     diagnostic::Severity,
@@ -11,7 +12,7 @@ use mcc::{
 };
 use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
-use crate::{Callbacks, Config};
+use crate::{Callbacks, Config, Outcome};
 
 const LOG_FILTERS: &[&str] = &["warn", "mcc=debug", "mcc-syntax=debug", "mcc-driver=debug"];
 
@@ -76,45 +77,27 @@ impl Cli {
             output: self.output.clone(),
         };
 
-        let mut cb = DefaultCallbacks {
-            stop_at: self.stop_at,
-            diags: Vec::new(),
-            assembly: None,
+        let assembly_path = if self.keep_assembly {
+            Some(
+                self.output
+                    .clone()
+                    .unwrap_or_else(|| self.input.clone())
+                    .with_extension("s"),
+            )
+        } else {
+            None
         };
 
-        if let Err(e) = crate::callbacks::run(&mut cb, cfg).to_result() {
-            self.emit_diagnostics(&files, &cb.diags)?;
-            return Err(e);
-        }
+        let mut cb = DefaultCallbacks::new(self.stop_at, self.color.color, files, assembly_path);
 
-        if let Some(assembly) = cb.assembly {
-            if self.keep_assembly {
-                let dest = self
-                    .output
-                    .unwrap_or_else(|| self.input.with_extension("s"));
-                std::fs::write(dest, assembly)?;
+        match crate::callbacks::run(&mut cb, cfg) {
+            Outcome::Ok => {}
+            Outcome::Err(e) => {
+                return Err(e);
             }
-        }
-
-        if cb.diags.iter().any(|d| d.0.severity >= Severity::Error) {
-            return Err(anyhow::anyhow!("compilation failed"));
-        }
-
-        Ok(())
-    }
-
-    fn emit_diagnostics(&self, files: &Files, diags: &[Diagnostics]) -> anyhow::Result<()> {
-        let color = match self.color.color {
-            ClapColor::Auto => TermColor::Auto,
-            ClapColor::Always => TermColor::Always,
-            ClapColor::Never => TermColor::Never,
-        };
-        let mut writer = codespan_reporting::term::termcolor::StandardStream::stderr(color);
-
-        let cfg = codespan_reporting::term::Config::default();
-
-        for diag in diags {
-            term::emit(&mut writer, &cfg, files, &diag.0)?;
+            Outcome::EarlyReturn(_) => {
+                return Err(anyhow::anyhow!("Compilation failed"));
+            }
         }
 
         Ok(())
@@ -123,13 +106,59 @@ impl Cli {
 
 #[derive(Debug, Clone)]
 struct DefaultCallbacks {
-    assembly: Option<Text>,
+    assembly_path: Option<PathBuf>,
     stop_at: Stage,
-    diags: Vec<Diagnostics>,
+    colour: TermColor,
+    files: Files,
+}
+
+impl DefaultCallbacks {
+    fn new(
+        stop_at: Stage,
+        colour: colorchoice_clap::ColorChoice,
+        files: Files,
+        assembly_path: Option<PathBuf>,
+    ) -> Self {
+        let colour = match colour {
+            ClapColor::Auto => TermColor::Auto,
+            ClapColor::Always => TermColor::Always,
+            ClapColor::Never => TermColor::Never,
+        };
+        DefaultCallbacks {
+            assembly_path,
+            stop_at,
+            colour,
+            files,
+        }
+    }
+
+    fn emit_diagnostics(&self, diags: &[&Diagnostics]) -> Result<(), anyhow::Error> {
+        let mut writer = codespan_reporting::term::termcolor::StandardStream::stderr(self.colour);
+
+        let cfg = codespan_reporting::term::Config::default();
+
+        for diag in diags {
+            term::emit(&mut writer, &cfg, &self.files, &diag.0)?;
+        }
+
+        Ok(())
+    }
+
+    fn handle_diags(&mut self, diags: &[&Diagnostics]) -> ControlFlow<Result<(), anyhow::Error>> {
+        if let Err(e) = self.emit_diagnostics(diags) {
+            return ControlFlow::Break(Err(e));
+        }
+
+        if diags.iter().any(|d| d.0.severity >= Severity::Error) {
+            return ControlFlow::Break(Err(anyhow::anyhow!("Compilation failed")));
+        }
+
+        ControlFlow::Continue(())
+    }
 }
 
 impl Callbacks for DefaultCallbacks {
-    type Output = ();
+    type Output = Result<(), anyhow::Error>;
 
     fn after_parse<'db>(
         &mut self,
@@ -137,11 +166,11 @@ impl Callbacks for DefaultCallbacks {
         _source_file: mcc::types::SourceFile,
         _ast: Ast<'db>,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.diags.extend(diags.into_iter().cloned());
+    ) -> ControlFlow<Self::Output> {
+        self.handle_diags(&diags)?;
 
-        if self.stop_at.parse || self.stop_at.lex || !self.diags.is_empty() {
-            ControlFlow::Break(())
+        if self.stop_at.parse || self.stop_at.lex {
+            ControlFlow::Break(Ok(()))
         } else {
             ControlFlow::Continue(())
         }
@@ -152,11 +181,11 @@ impl Callbacks for DefaultCallbacks {
         _db: &'db dyn mcc::Db,
         _tacky: tacky::Program<'db>,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.diags.extend(diags.into_iter().cloned());
+    ) -> ControlFlow<Self::Output> {
+        self.handle_diags(&diags)?;
 
-        if self.stop_at.tacky || !self.diags.is_empty() {
-            ControlFlow::Break(())
+        if self.stop_at.tacky {
+            ControlFlow::Break(Ok(()))
         } else {
             ControlFlow::Continue(())
         }
@@ -167,11 +196,11 @@ impl Callbacks for DefaultCallbacks {
         _db: &'db dyn mcc::Db,
         _asm: asm::Program<'db>,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.diags.extend(diags.into_iter().cloned());
+    ) -> ControlFlow<Self::Output> {
+        self.handle_diags(&diags)?;
 
-        if self.stop_at.codegen || !self.diags.is_empty() {
-            ControlFlow::Break(())
+        if self.stop_at.codegen {
+            ControlFlow::Break(Ok(()))
         } else {
             ControlFlow::Continue(())
         }
@@ -182,18 +211,22 @@ impl Callbacks for DefaultCallbacks {
         _db: &dyn mcc::Db,
         asm: Text,
         diags: Vec<&Diagnostics>,
-    ) -> ControlFlow<()> {
-        self.diags.extend(diags.into_iter().cloned());
-        self.assembly = Some(asm);
+    ) -> ControlFlow<Self::Output> {
+        self.handle_diags(&diags)?;
 
-        if !self.diags.is_empty() {
-            ControlFlow::Break(())
-        } else {
-            ControlFlow::Continue(())
+        if let Some(path) = self.assembly_path.as_mut() {
+            tracing::info!(path = %path.display(), "Writing assembly to disk");
+            if let Err(e) = std::fs::write(&path, asm)
+                .with_context(|| format!("Failed to write assembly to {}", path.display()))
+            {
+                return ControlFlow::Break(Err(e));
+            }
         }
+
+        ControlFlow::Continue(())
     }
 
-    fn after_compile(&mut self, _db: &dyn mcc::Db, _binary: PathBuf) -> ControlFlow<()> {
+    fn after_compile(&mut self, _db: &dyn mcc::Db, _binary: PathBuf) -> ControlFlow<Self::Output> {
         ControlFlow::Continue(())
     }
 }
