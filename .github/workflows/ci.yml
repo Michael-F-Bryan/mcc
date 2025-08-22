@@ -26,6 +26,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Setup Rust
         uses: dsherret/rust-toolchain-file@v1
       - name: Install Nextest
@@ -46,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
@@ -60,6 +64,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
