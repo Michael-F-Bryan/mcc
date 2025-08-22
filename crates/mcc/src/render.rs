@@ -46,7 +46,10 @@ impl<W: Write> AssemblyRenderer<W> {
     }
 
     fn function_name<'a>(&self, name: &'a str) -> Cow<'a, str> {
-        if matches!(self.target.operating_system, OperatingSystem::MacOSX(_)) {
+        if matches!(
+            self.target.operating_system,
+            OperatingSystem::MacOSX(_) | OperatingSystem::Darwin(_)
+        ) {
             format!("_{name}").into()
         } else {
             name.into()

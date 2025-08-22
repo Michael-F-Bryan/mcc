@@ -15,14 +15,16 @@ pub fn assemble_and_link(
     target: Triple,
 ) -> Result<(), CommandError> {
     let mut cmd = Command::new(cc);
-    cmd.arg("-c").arg(assembly).arg("-o").arg(dest);
+    cmd.arg("-o").arg(dest).arg("-g");
 
     if matches!(target.operating_system, OperatingSystem::Darwin(_))
         && !matches!(target.architecture, Architecture::Aarch64(_))
     {
         // Note: Make sure we cross-compile to x86 on MacOS
-        cmd.arg("-target").arg(target.to_string());
+        cmd.arg("-arch").arg(target.architecture.to_string());
     }
+
+    cmd.arg(assembly);
 
     crate::cmd::run_cmd(&mut cmd)?;
 
