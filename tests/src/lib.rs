@@ -2,10 +2,11 @@ use std::{
     ffi::OsStr,
     fmt::{self, Display, Formatter},
     path::{Path, PathBuf},
+    process::{Command, Output, Stdio},
     str::FromStr,
 };
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use libtest_mimic::{Failed, Trial};
 use mcc::{Text, diagnostics::Diagnostics, types::SourceFile};
 use mcc_driver::{Config as DriverConfig, Outcome, run as driver_run};
@@ -20,11 +21,14 @@ pub struct Config {
     pub max_chapter: u32,
 }
 
-pub fn discover(test_root: &Path) -> Result<Vec<TestCase>, Error> {
+pub fn discover(
+    test_root: &Path,
+    expected_results: &ExpectedResults,
+) -> Result<Vec<TestCase>, Error> {
     let tests_dir = test_root.join("tests");
     let mut tests = Vec::new();
 
-    for entry in std::fs::read_dir(tests_dir)? {
+    for entry in std::fs::read_dir(&tests_dir)? {
         let entry = entry?;
         let path = entry.path();
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
@@ -55,27 +59,53 @@ pub fn discover(test_root: &Path) -> Result<Vec<TestCase>, Error> {
                 let name = path.file_stem().unwrap().to_str().unwrap();
                 let name = format!("chapter_{chapter}::{kind}::{name}");
 
+                let trimmed_path = path.strip_prefix(&tests_dir).unwrap();
+                let expected = expected_results
+                    .0
+                    .get(trimmed_path.to_str().unwrap())
+                    .cloned();
+
                 tests.push(TestCase {
                     chapter,
                     kind: kind.clone(),
                     path,
                     name,
+                    expected,
                 });
             }
         }
     }
 
-    tests.sort();
+    tests.sort_by_cached_key(|t| (t.chapter, t.kind.clone(), t.name.clone()));
 
     Ok(tests)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ExpectedResults(std::collections::HashMap<String, TestResult>);
+
+impl ExpectedResults {
+    pub fn load(path: &Path) -> Result<Self, Error> {
+        let file = std::fs::read_to_string(path)?;
+        let expected = serde_json::from_str(&file)?;
+        Ok(expected)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TestResult {
+    pub return_code: i32,
+    #[serde(default)]
+    pub stdout: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestCase {
     pub chapter: u32,
     pub kind: Kind,
     pub path: PathBuf,
     pub name: String,
+    pub expected: Option<TestResult>,
 }
 
 impl TestCase {
@@ -83,7 +113,11 @@ impl TestCase {
         let cc = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
 
         let TestCase {
-            kind, path, name, ..
+            kind,
+            path,
+            name,
+            expected,
+            ..
         } = self;
 
         Trial::test(name, move || {
@@ -99,7 +133,8 @@ impl TestCase {
             let output_path = temp.path().join("output_bin");
 
             let mut cb = Callbacks {
-                expected: kind_str.map(|s| s.to_string()),
+                expected_kind: kind_str.map(|s| s.to_string()),
+                expected,
             };
 
             let cfg = DriverConfig {
@@ -176,7 +211,8 @@ impl FromStr for Kind {
 
 #[derive(Debug, Clone)]
 struct Callbacks {
-    expected: Option<String>,
+    expected_kind: Option<String>,
+    expected: Option<TestResult>,
 }
 
 impl mcc_driver::Callbacks for Callbacks {
@@ -189,7 +225,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _ast: mcc::types::Ast<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("lex" | "parse") = self.expected.as_deref() {
+        if let Some("lex" | "parse") = self.expected_kind.as_deref() {
             if diags.is_empty() {
                 ControlFlow::Break(Err(anyhow::anyhow!("expected lex/parse error")))
             } else {
@@ -206,7 +242,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _tacky: mcc::lowering::tacky::Program<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("tacky") = self.expected.as_deref() {
+        if let Some("tacky") = self.expected_kind.as_deref() {
             if diags.is_empty() {
                 ControlFlow::Break(Err(anyhow::anyhow!("expected tacky error")))
             } else {
@@ -223,7 +259,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _asm: mcc::codegen::asm::Program<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("codegen") = self.expected.as_deref() {
+        if let Some("codegen") = self.expected_kind.as_deref() {
             if diags.is_empty() {
                 ControlFlow::Break(Err(anyhow::anyhow!("expected codegen error")))
             } else {
@@ -240,7 +276,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _asm: Text,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("render") = self.expected.as_deref() {
+        if let Some("render") = self.expected_kind.as_deref() {
             if diags.is_empty() {
                 ControlFlow::Break(Err(anyhow::anyhow!("expected render error")))
             } else {
@@ -249,5 +285,47 @@ impl mcc_driver::Callbacks for Callbacks {
         } else {
             ControlFlow::Continue(())
         }
+    }
+
+    fn after_compile(&mut self, _db: &dyn mcc::Db, binary: PathBuf) -> ControlFlow<Self::Output> {
+        let Some(TestResult {
+            return_code,
+            stdout: expected_stdout,
+        }) = &self.expected
+        else {
+            return ControlFlow::Break(Err(anyhow::anyhow!(
+                "There should be an expected result for this test"
+            )));
+        };
+
+        let Output { status, stdout, .. } = match Command::new(&binary)
+            .stdin(Stdio::null())
+            .output()
+            .with_context(|| format!("failed to spawn \"{}\"", binary.display()))
+        {
+            Ok(output) => output,
+            Err(e) => {
+                return ControlFlow::Break(Err(e));
+            }
+        };
+
+        if status.code() != Some(*return_code) {
+            let err = anyhow::anyhow!("expected return code {return_code}, got {status}");
+            return ControlFlow::Break(Err(err));
+        }
+
+        if let Some(expected_stdout) = expected_stdout {
+            let stdout = String::from_utf8_lossy(&stdout);
+            if stdout != *expected_stdout {
+                let err = anyhow::anyhow!(
+                    "expected stdout to be \"{}\", got \"{}\"",
+                    expected_stdout,
+                    stdout
+                );
+                return ControlFlow::Break(Err(err));
+            }
+        }
+
+        ControlFlow::Continue(())
     }
 }

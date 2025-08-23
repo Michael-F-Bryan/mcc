@@ -13,7 +13,7 @@ fn run_test_compiler() {
     let mut cmd = Command::new("python3");
     cmd.arg(test_root.join("test_compiler"))
         .arg(compiler_driver)
-        .arg("--chapter=2");
+        .arg("--chapter=3");
     println!("Running: {cmd:?}");
 
     let output = cmd
