@@ -84,10 +84,17 @@ fn to_assembly<'db>(
 
                 match op {
                     BinOpKind::Bin(op) => {
-                        instructions.push(asm::Instruction::Mov { src: left_src, dst });
+                        instructions.push(asm::Instruction::Mov {
+                            src: left_src,
+                            dst: asm::Operand::Register(asm::Register::R10),
+                        });
                         instructions.push(asm::Instruction::Binary {
                             op,
                             src: right_src,
+                            dst: asm::Operand::Register(asm::Register::R10),
+                        });
+                        instructions.push(asm::Instruction::Mov {
+                            src: asm::Operand::Register(asm::Register::R10),
                             dst,
                         });
                     }
@@ -106,13 +113,24 @@ fn to_assembly<'db>(
                     BinOpKind::Mod => {
                         instructions.push(asm::Instruction::Mov {
                             src: left_src,
-                            dst: asm::Operand::Register(asm::Register::DX),
+                            dst: asm::Operand::Register(asm::Register::AX),
                         });
                         instructions.push(asm::Instruction::Cdq);
-                    },
+                        instructions.push(asm::Instruction::Idiv { src: right_src });
+                        instructions.push(asm::Instruction::Mov {
+                            src: asm::Operand::Register(asm::Register::DX),
+                            dst,
+                        });
+                    }
                 }
             }
         }
+    }
+
+    // Allocate stack space for local variables if needed. Each slot is 4 bytes.
+    let stack_size_bytes = (stack_locations.variables.len() as u32) * 4;
+    if stack_size_bytes > 0 {
+        instructions.insert(0, asm::Instruction::AllocateStack(stack_size_bytes));
     }
 
     asm::FunctionDefinition::new(db, name, instructions, function.span(db))
@@ -179,6 +197,9 @@ fn fix_up_instructions<'db>(
                 src: src @ asm::Operand::Stack(_),
                 dst: dst @ asm::Operand::Stack(_),
             } => {
+                // `mov` instructions with memory addresses as both source and
+                // destination are invalid assembly, so we need to move the
+                // source to a register first.
                 instructions.push(asm::Instruction::Mov {
                     src,
                     dst: asm::Operand::Register(asm::Register::R10),
@@ -186,6 +207,19 @@ fn fix_up_instructions<'db>(
                 instructions.push(asm::Instruction::Mov {
                     src: asm::Operand::Register(asm::Register::R10),
                     dst,
+                });
+            }
+            asm::Instruction::Idiv {
+                src: src @ asm::Operand::Imm(_),
+            } => {
+                // `idiv` does not accept an immediate, so we need to move the
+                // source to a register first.
+                instructions.push(asm::Instruction::Mov {
+                    src,
+                    dst: asm::Operand::Register(asm::Register::R10),
+                });
+                instructions.push(asm::Instruction::Idiv {
+                    src: asm::Operand::Register(asm::Register::R10),
                 });
             }
             other => instructions.push(other),

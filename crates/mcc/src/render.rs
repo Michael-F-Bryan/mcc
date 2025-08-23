@@ -100,14 +100,21 @@ impl<W: Write> AssemblyRenderer<W> {
                 writeln!(self.writer, "popq %rbp")?;
                 writeln!(self.writer, "ret")?;
             }
-            asm::Instruction::Binary { .. } => {
-                todo!();
+            asm::Instruction::Binary { op, src, dst } => {
+                self.binary_operator(op)?;
+                write!(self.writer, " ")?;
+                self.operand(src)?;
+                write!(self.writer, ", ")?;
+                self.operand(dst)?;
+                writeln!(self.writer)?;
             }
-            asm::Instruction::Idiv { .. } => {
-                todo!();
+            asm::Instruction::Idiv { src } => {
+                write!(self.writer, "idivl ")?;
+                self.operand(src)?;
+                writeln!(self.writer)?;
             }
             asm::Instruction::Cdq => {
-                todo!();
+                writeln!(self.writer, "cdq")?;
             }
         }
 
@@ -118,7 +125,7 @@ impl<W: Write> AssemblyRenderer<W> {
         match operand {
             asm::Operand::Imm(imm) => write!(self.writer, "${imm}"),
             asm::Operand::Register(reg) => self.register(reg),
-            asm::Operand::Stack(stack) => write!(self.writer, "{stack}(%rbp)"),
+            asm::Operand::Stack(stack) => write!(self.writer, "-{}(%rbp)", stack + 4),
         }
     }
 
@@ -134,6 +141,14 @@ impl<W: Write> AssemblyRenderer<W> {
         match op {
             asm::UnaryOperator::Neg => write!(self.writer, "negl"),
             asm::UnaryOperator::Not => write!(self.writer, "notl"),
+        }
+    }
+
+    fn binary_operator(&mut self, op: asm::BinaryOperator) -> fmt::Result {
+        match op {
+            asm::BinaryOperator::Add => write!(self.writer, "addl"),
+            asm::BinaryOperator::Sub => write!(self.writer, "subl"),
+            asm::BinaryOperator::Mul => write!(self.writer, "imull"),
         }
     }
 }
