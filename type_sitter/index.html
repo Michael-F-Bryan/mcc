@@ -1,0 +1,365 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="type-sitter: generate typed wrappers for tree-sitter nodes and queries"><title>type_sitter - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="type_sitter" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../type_sitter/index.html">type_<wbr>sitter</a><span class="version">0.8.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#type-sitter-generate-typed-wrappers-for-tree-sitter-nodes-and-queries" title="type-sitter: generate typed wrappers for tree-sitter nodes and queries">type-sitter: generate typed wrappers for tree-sitter nodes and queries</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#usage" title="Usage">Usage</a></li><li><a href="#example" title="Example">Example</a></li><li><a href="#drawbacks" title="Drawbacks">Drawbacks</a></li><li><a href="#naming-rules" title="Naming Rules">Naming Rules</a></li><li><a href="#comparison-to-rust-sitter" title="Comparison to rust-sitter">Comparison to rust-sitter</a></li><li><a href="#contributing" title="Contributing">Contributing</a></li><li><a href="#licence" title="Licence">Licence</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#types" title="Type Aliases">Type Aliases</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>type_sitter</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/type_sitter/lib.rs.html#1-5">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="type-sitter-generate-typed-wrappers-for-tree-sitter-nodes-and-queries"><a class="doc-anchor" href="#type-sitter-generate-typed-wrappers-for-tree-sitter-nodes-and-queries">§</a>type-sitter: generate typed wrappers for <a href="https://tree-sitter.github.io">tree-sitter</a> nodes and queries</h2>
+<p><em><strong>Note:</strong> type-sitter is in alpha, therefore the API is subject to change.</em></p>
+<p><a href="https://github.com/Jakobeha/type-sitter/actions/workflows/ci.yml"><img src="https://github.com/Jakobeha/type-sitter/actions/workflows/ci.yml/badge.svg" alt="Build status" /></a>
+<a href="https://crates.io/crates/type-sitter"><img src="https://img.shields.io/crates/v/type-sitter" alt="Crates.io" /></a>
+<a href="https://docs.rs/type-sitter-lib"><img src="https://img.shields.io/docsrs/type-sitter-lib?label=docs%20%7C%20type-sitter-lib" alt="docs.rs | type-sitter-lib" /></a>
+<a href="https://docs.rs/type-sitter-gen"><img src="https://img.shields.io/docsrs/type-sitter-gen?label=docs%20%7C%20type-sitter-gen" alt="docs.rs | type-sitter-gen" /></a>
+<a href="https://docs.rs/yak-sitter"><img src="https://img.shields.io/docsrs/yak-sitter?label=docs%20%7C%20yak-sitter" alt="docs.rs | yak-sitter" /></a></p>
+<p>Type-sitter currently depends on <a href="https://github.com/tree-sitter/tree-sitter/releases/tag/v0.25.2">**tree-sitter v0.25
+**</a>.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p><code>type-sitter</code> generates type-safe wrappers for tree-sitter nodes and queries in a specific language. Nodes are generated
+from <a href="https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types"><code>node-types.json</code></a>, and queries
+from <a href="https://tree-sitter.github.io/tree-sitter/using-parsers#pattern-matching-with-queries">query s-expressions</a>.</p>
+<p>“Type-safe” here means that:</p>
+<ul>
+<li>Instead of representing all tree-sitter nodes by <a href="https://docs.rs/tree-sitter/latest/tree_sitter/struct.Node.html">
+<code>tree_sitter::Node</code></a>, each node type has its own
+data-type which wraps <code>tree_sitter::Node</code>.
+<ul>
+<li>Supertype nodes are <code>enum</code>s, so you can pattern-match their subtypes with compile-time exhaustiveness checking.</li>
+<li>Each node data-type implements <a href="https://docs.rs/type-sitter-lib/latest/type_sitter_lib/trait.Node.html">
+<code>type_sitter::Node</code></a>. You can use generics
+and convert to/from <a href="https://docs.rs/type-sitter-lib/latest/type_sitter_lib/struct.UntypedNode.html">
+<code>type_sitter::UntypedNode</code></a> to
+write methods that take or return arbitrary-typed nodes.</li>
+</ul>
+</li>
+<li>Instead of accessing fields by <code>field("field_name")</code>, you access by specific methods like <code>field_name()</code>.
+<ul>
+<li>These methods, and every other generated method, also return typed nodes.</li>
+</ul>
+</li>
+<li>Queries also have their own data-types, you access captures by specific methods instead of <code>capture("capture_name")</code>,
+and query methods return typed nodes.</li>
+</ul>
+<p><code>type-sitter</code> has other useful features:</p>
+<ul>
+<li>Typed error, missing, and extra nodes.</li>
+<li>From a typed node you can lookup the “extra” nodes before and after, e.g. to handle comments.</li>
+<li><a href="https://docs.rs/type-sitter-lib/latest/type_sitter_lib/trait.OptionNodeResultExt.html"><code>Option&lt;NodeResult&lt;'_&gt;&gt;.unwrap2()</code>, <code>.expect2()</code>, and
+<code>.flatten()</code></a>.</li>
+<li>Custom supertypes can be created at build time, to group nodes that are’t grouped in the original grammar. You could,
+for instance, create create a supertype for all named nodes, all nodes that have named fields, or any other grouping
+that makes sense for the tool that you’re building.</li>
+</ul>
+<p>Lastly, there’s an optional feature, <code>yak-sitter</code>, which re-exports the <code>tree-sitter</code> API with a few small changes, most
+notably nodes being able to access their text and filepath directly. The <a href="yak-sitter/README.md"><code>yak-sitter</code></a> library is
+a drop-in replacement for <code>tree-sitter</code> and can by used by itself without <code>type-sitter</code> (and <code>yak-sitter</code> is optional in
+<code>type-sitter</code>).</p>
+<h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
+<p>There are three ways to use <code>type-sitter</code>: procedural macros, build script, or the CLI tool. Procedural macros is the
+easiest. Build script is recommended because it’s much faster (only runs when the grammar changes) and lets you see the
+generated code. The CLI tool is the most flexible, as it lets you edit the generated code, but it requires you to
+re-generate the code manually.</p>
+<p>Every method <em>except the build script for node-types only</em> requires that you <strong>vendor</strong> the tree-sitter grammar you want
+to generate bindings for: you cannot just include it as a dependency in <code>Cargo.toml</code>, because the node generator needs a
+hard-coded (relative) path to the grammar’s <code>node-types.json</code>, and the query generator needs a hard-coded path to the
+grammar’s root folder (containing <code>src/node-types.json</code>), which must also contain a built shared object (at
+<code>build/tree_sitter_foobar_binding.dylib</code> or <code>build/tree_sitter_foobar_binding.so</code>).</p>
+<h4 id="procedural-macros-easiest"><a class="doc-anchor" href="#procedural-macros-easiest">§</a>Procedural macros (easiest)</h4><div class="example-wrap"><pre class="language-shell"><code>cargo add type-sitter  # Or add to Cargo.toml manually
+cargo add tree-sitter-foobar-lang  # Replace `foobar-lang` with the name of your language</code></pre></div>
+<p>To generate typed nodes:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Assume this code is in `src/foobar_nodes.rs`
+</span><span class="kw">use </span>type_sitter_proc::generate_nodes;
+
+<span class="macro">generate_nodes!</span> {
+    <span class="comment">// Replace this with the path to the node-types.json file
+    </span><span class="string">"vendor/path/to/tree-sitter-foobar-lang/src/node-types.json"
+</span>}</code></pre></div>
+<p>To generate typed queries:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// Assume this code is in `src/foobar_queries.rs`
+</span><span class="kw">use </span>type_sitter_proc::generate_queries;
+
+<span class="macro">generate_queries!</span> {
+    <span class="comment">// Replace this with the path to the queries folder
+    </span><span class="string">"vendor/path/to/tree-sitter-foobar-lang/src/queries"</span>,
+    <span class="comment">// Replace this with the path to the grammar's root
+    </span><span class="string">"vendor/path/to/tree-sitter-foobar-lang/src"</span>,
+    <span class="comment">// Replace with a different path if the nodes don't exist in a sibling module named `foobar_nodes`.
+    </span><span class="kw">super</span>::foobar_nodes,
+}</code></pre></div>
+<h4 id="build-script-recommended"><a class="doc-anchor" href="#build-script-recommended">§</a>Build script (recommended)</h4><div class="example-wrap"><pre class="language-shell"><code>cargo add type-sitter --no-default-features  # Or add to Cargo.toml manually
+cargo add --build type-sitter-gen  # Notice `cargo add --build`
+cargo add tree-sitter-foobar-lang  # Replace `foobar-lang` with the name of your language</code></pre></div>
+<p>Then, in <code>build.rs</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::path::{PathBuf, Path};
+<span class="kw">use </span>std::{env, fs};
+<span class="kw">use </span>type_sitter_gen::{generate_nodes, generate_queries, super_nodes};
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Common setup
+    </span><span class="kw">let </span>out_dir = PathBuf::from(env::var_os(<span class="string">"OUT_DIR"</span>).unwrap());
+    <span class="macro">println!</span>(<span class="string">"cargo::rerun-if-changed=build.rs"</span>);
+
+    <span class="comment">// Obligatory: in this and future lines, replace `vendor/path/to/tree-sitter-foobar-lang`
+    // with the path to your grammar's folder, relative to the folder containing `Cargo.toml`
+    </span><span class="macro">println!</span>(<span class="string">"cargo::rerun-if-changed=vendor/path/to/tree-sitter-foobar-lang"</span>);
+    
+    <span class="comment">// To generate nodes
+    </span><span class="kw">let </span>path = Path::new(<span class="string">"vendor/path/to/tree-sitter-foobar-lang/src/node-types.json"</span>);
+    fs::write(
+        out_dir.join(<span class="string">"nodes.rs"</span>),
+        generate_nodes(path).unwrap().into_string()
+    ).unwrap();
+  
+    <span class="comment">// To generate queries
+    </span>fs::write(
+        out_dir.join(<span class="string">"queries.rs"</span>),
+        generate_queries(
+            <span class="string">"vendor/path/to/tree-sitter-foobar-lang/queries"</span>,
+            <span class="string">"vendor/path/to/tree-sitter-foobar-lang"</span>,
+            <span class="comment">// Replace with a different `syn::Path` if the nodes don't exist in a subling to `dest_path` named `nodes`
+            </span><span class="kw-2">&amp;</span>super_nodes(),
+            <span class="comment">// Replace with `true` if you are using the `yak-sitter` feature (by default, no)
+            </span><span class="bool-val">false
+        </span>).unwrap().into_string()
+    ).unwrap();
+}</code></pre></div>
+<p>then make sure to include the generated code somewhere:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>nodes {
+    <span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/nodes.rs"</span>));
+}
+
+<span class="kw">mod </span>queries {
+    <span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/queries.rs"</span>));
+}</code></pre></div>
+<h5 id="custom-supertypes"><a class="doc-anchor" href="#custom-supertypes">§</a>Custom supertypes</h5>
+<p>To generate custom supertypes, follow the same steps as above, but modify the build script to something like</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>type_sitter_gen::{NodeTypeMap, NodeName, NodeTypeKind};
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// ...
+
+    // To generate nodes (THIS SECTION IS DIFFERENT)
+    </span><span class="kw">let </span>path = Path::new(<span class="string">"vendor/path/to/tree-sitter-foobar-lang/src/node-types.json"</span>);
+    <span class="kw">let </span>node_type_map = NodeTypeMap::try_from(path).unwrap();
+
+    <span class="kw">let </span>named: Vec&lt;NodeName&gt; = node_type_map
+        .values()
+        .map(|node| node.name.clone())
+        .filter(|name| name.is_named);
+    node_type_map
+        .add_custom_supertype(<span class="string">"_all_named"</span>, named)
+        .expect(<span class="string">"this mustn't already exist"</span>);
+  
+    <span class="comment">// To give an explicit name to a hidden node that is not a supertype in the grammar.
+    // (e.g. make `Class::members` return `ClassMember` instead of `anon_unions::...`, assuming the
+    //  original `grammar.js` contains:
+    //  ```
+    //  class: $ =&gt; seq(
+    //      ...
+    //      field('members', $._class_members),
+    //      ...
+    //  ),
+    //  _class_members: $ =&gt; choice(...),
+    //  ```
+    //  and `_class_members` is not in `supertypes`)
+    </span><span class="kw">let </span>class_member_variants = node_type_map[<span class="string">"class"</span>][<span class="string">"members"</span>].types.clone();
+    node_type_map
+        .add_custom_supertype(<span class="string">"_class_member"</span>, class_member_variants)
+        .expect(<span class="string">"this mustn't already exist"</span>);
+
+    fs::write(
+        out_dir.join(<span class="string">"nodes.rs"</span>),
+        generate_nodes(node_type_map).unwrap().into_string()
+    ).unwrap();
+  
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<h5 id="build-script-without-vendoring-the-grammar-only-nodes"><a class="doc-anchor" href="#build-script-without-vendoring-the-grammar-only-nodes">§</a>Build script (without vendoring the grammar, only nodes)</h5>
+<p>Run these commands or add the dependencies manually:</p>
+<div class="example-wrap"><pre class="language-shell"><code>cargo add type-sitter --no-default-features  # Or add to Cargo.toml manually
+cargo add --build type-sitter-gen  # Notice `cargo add --build`
+cargo add tree-sitter-foobar-lang  # Replace `foobar-lang` with the name of your language
+# Since the grammar isn&#39;t vendored, you must also include your language&#39;s tree-sitter grammar as a build-dependency.
+cargo add --build tree-sitter-foobar-lang  # Replace `foobar-lang` with the name of your language</code></pre></div>
+<p>Then, in <code>build.rs</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::{env, fs};
+<span class="kw">use </span>type_sitter_gen::generate_nodes;
+
+<span class="kw">fn </span>main() {
+    <span class="comment">// Common setup. Same as before
+    </span><span class="kw">let </span>out_dir = PathBuf::from(env::var_os(<span class="string">"OUT_DIR"</span>).unwrap());
+    <span class="macro">println!</span>(<span class="string">"cargo::rerun-if-changed=build.rs"</span>);
+
+    <span class="comment">// Obligatory: in this and future lines, replace `vendor/path/to/tree-sitter-foobar-lang`
+    // with the path to your grammar's folder, relative to the folder containing `Cargo.toml`
+    </span><span class="macro">println!</span>(<span class="string">"cargo::rerun-if-changed=vendor/path/to/tree-sitter-foobar-lang"</span>);
+    
+    <span class="comment">// To generate nodes
+    </span>fs::write(
+        out_dir.join(<span class="string">"nodes.rs"</span>),
+        generate_nodes(tree_sitter_foobar_lang::NODE_TYPES).unwrap().into_string()
+    ).unwrap();
+}</code></pre></div>
+<p>then make sure to include the generated code somewhere:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>nodes {
+    <span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/nodes.rs"</span>));
+}</code></pre></div>
+<p>Currently you can’t generate queries without <a href="#build-script-recommended">vendoring the grammar</a>.</p>
+<h4 id="cli-tool-flexible"><a class="doc-anchor" href="#cli-tool-flexible">§</a>CLI tool (flexible)</h4><div class="example-wrap"><pre class="language-shell"><code>cargo add type-sitter --no-default-features  # Or add to Cargo.toml manually
+cargo install type-sitter-cli  # Notice `cargo install`
+cargo add tree-sitter-foobar-lang  # Replace `foobar-lang` with the name of your language</code></pre></div>
+<p>Then, <em>manually</em> generate typed nodes and queries with the CLI tool:</p>
+<div class="example-wrap"><pre class="language-shell"><code># Replace `vendor/path/to/tree-sitter-foobar-lang` and `src/parent/of/generated/module` with the path to the grammar&#39;s
+# root folder (containing `src/node-types.json` and `queries`) and the directory where you want the generated module&#39;s
+# source files to be placed, respectively.
+&gt; cargo run -p type-sitter-cli vendor/path/to/tree-sitter-foobar-lang -o src/parent/of/generated/module</code></pre></div>
+<p>Additionally, you must pass <code>--use-yak-sitter</code> if the <code>yak-sitter</code> feature is enabled. If you skip <code>-o</code>, it defaults to
+<code>src/type_sitter</code>.</p>
+<p>Alternatively, instead of the path to the grammar’s root folder, if you specify the path to the <code>node-types.json</code>
+directly, the CLI tool will only generate node types; or if you specify the path to the <code>queries</code> directory, it will
+only generate queries.</p>
+<p>A downside with the CLI approach is that you need to manually re-generate the nodes if the grammar changes. An upside is
+that, if you know the grammar won’t change and you won’t have to manually re-generate, you can edit the generated code
+and the edits will persist.</p>
+<p>Another downside is that the CLI can only be used on systems that have run <code>cargo install type-sitter-cli</code>.
+See https://github.com/rust-lang/cargo/issues/2267 for why the CLI method can’t easily be made portable; if you want
+portability, use procedural macros or a build script.</p>
+<h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">pub fn </span>get_import_paths_untyped&lt;<span class="lifetime">'a</span>&gt;(source: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, tree: <span class="kw-2">&amp;</span>tree_sitter::Tree) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; {
+    <span class="comment">// BAD: what if we spell the field names wrong? What if a new variant is added with the same field name? 
+    </span>tree.root_node().children(<span class="kw-2">&amp;mut </span>tree.walk())
+        .filter(|n| n.kind() == <span class="string">"use_declaration"</span>)
+        .filter_map(|n| n.child_by_field_name(<span class="string">"argument"</span>))
+        .filter_map(|n| n.child_by_field_name(<span class="string">"path"</span>))
+        .map(|n| n.utf8_text(source.as_bytes()).unwrap())
+        .collect()
+}
+
+<span class="kw">pub fn </span>get_import_paths_typed&lt;<span class="lifetime">'a</span>&gt;(source: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, tree: <span class="kw-2">&amp;</span>type_sitter::Tree&lt;rust::SourceFile&lt;<span class="lifetime">'static</span>&gt;&gt;) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; {
+    <span class="comment">// GOOD: fields are type-safe, variant selectors are explicit, and we get IDE inference
+    </span>tree.root_node().unwrap().children(<span class="kw-2">&amp;mut </span>tree.walk())
+        .filter_map(|n| n.as_use_declaration())
+        .filter_map(|n| n.argument().map(|r| r.unwrap()))
+        .filter_map(|n| n.as_scoped_identifier())
+        .filter_map(|n| n.path().map(|r| r.unwrap()))
+        .map(|n| n.utf8_text(source.as_bytes()).unwrap())
+        .collect()
+}
+
+<span class="comment">// We can also define methods which only take nodes of certain types
+</span><span class="kw">pub fn </span>process_declaration(decl: rust::DeclarationStatement&lt;<span class="lifetime">'_</span>&gt;) {
+    <span class="comment">// ...
+</span>}</code></pre></div>
+<h3 id="drawbacks"><a class="doc-anchor" href="#drawbacks">§</a>Drawbacks</h3>
+<p>Be aware that the generated wrapper code is very large: the <a href="type-sitter-lib/tests/rust/nodes.rs">generated node wrappers for
+<code>tree-sitter-rust</code></a> are &gt;30000 LOC,
+and <a href="type-sitter-lib/tests/rust/queries.rs">queries</a> are &gt;6000 LOC. I don’t know how that impacts compilation or
+analysis speed.</p>
+<p><code>type-sitter-proc</code> is particularly slow because it must re-generate this code every build. <code>type-sitter-gen</code> or
+<code>type-sitter-cli</code> can be configured to only re-generate when the tree-sitter grammar changes.</p>
+<h3 id="naming-rules"><a class="doc-anchor" href="#naming-rules">§</a>Naming Rules</h3>
+<p><code>type-sitter</code> generates data-types based on the names of the nodes in the grammar. However, these nodes are in
+snake-case and contain punctuation which is illegal in Rust, so we convert them to camel-case and perform the following
+illegal-character substitutions:</p>
+<ul>
+<li><code>&amp;</code> ⇒ <code>And</code></li>
+<li><code>|</code> ⇒ <code>Or</code></li>
+<li><code>!</code> ⇒ <code>Not</code></li>
+<li><code>=</code> ⇒ <code>Eq</code></li>
+<li><code>&lt;</code> ⇒ <code>Lt</code></li>
+<li><code>&gt;</code> ⇒ <code>Gt</code></li>
+<li><code>+</code> ⇒ <code>Add</code></li>
+<li><code>-</code> ⇒ <code>Sub</code></li>
+<li><code>*</code> ⇒ <code>Mul</code></li>
+<li><code>/</code> ⇒ <code>Div</code></li>
+<li><code>~</code> ⇒ <code>BitNot</code></li>
+<li><code>%</code> ⇒ <code>Mod</code></li>
+<li><code>^</code> ⇒ <code>BitXor</code></li>
+<li><code>?</code> ⇒ <code>Question</code></li>
+<li><code>:</code> ⇒ <code>Colon</code></li>
+<li><code>.</code> ⇒ <code>Dot</code></li>
+<li><code>,</code> ⇒ <code>Comma</code></li>
+<li><code>;</code> ⇒ <code>Semicolon</code></li>
+<li><code>(</code> ⇒ <code>LParen</code></li>
+<li><code>)</code> ⇒ <code>RParen</code></li>
+<li><code>[</code> ⇒ <code>LBracket</code></li>
+<li><code>]</code> ⇒ <code>RBracket</code></li>
+<li><code>{</code> ⇒ <code>LBrace</code></li>
+<li><code>}</code> ⇒ <code>RBrace</code></li>
+<li><code>\</code> ⇒ <code>Backslash</code></li>
+<li><code>'</code> ⇒ <code>Quote</code></li>
+<li><code>"</code> ⇒ <code>DoubleQuote</code></li>
+<li><code>#</code> ⇒ <code>Hash</code></li>
+<li><code>@</code> ⇒ <code>At</code></li>
+<li><code>$</code> ⇒ <code>Dollar</code></li>
+<li><code>`</code> ⇒ <code>Backtick</code></li>
+<li><code> </code> ⇒ <code>Space</code></li>
+<li><code>\t</code> ⇒ <code>Tab</code></li>
+<li><code>\n</code> ⇒ <code>Newline</code></li>
+<li><code>\r</code> ⇒ <code>CarriageReturn</code></li>
+<li>Any other character ⇒ <code>U</code> + the character’s Unicode codepoint in upper-hex.</li>
+</ul>
+<p>For method names (variant selectors), we simply convert back to snake case.</p>
+<p>Additionally, if a node is implicit (starts with <code>_</code>), we remove the prepended <code>_</code>.</p>
+<p>Next, if a type or method name would start with a digit, <code>type-sitter</code> prepends a <code>_</code>. If the type or method name would
+be <code>_</code>, <code>type-sitter</code> uses <code>__</code>. If the type or method name would be a reserved identifier that can be raw,
+<code>type-sitter</code> prepends <code>r#</code>. And, if the type or method name would be a reserved identifier that can’t be raw (<code>Self</code>,
+<code>self</code>, <code>super</code>, <code>crate</code>), <code>type-sitter</code> appends <code>_</code>.</p>
+<p>Lastly, if there are ever multiple types with the same name in the same module, or methods or variants with the same
+name in the same type, type-sitter appends <code>_</code> to the later one until it’s unique. For example, if there are two unnamed
+nodes <code>Fn</code> and <code>fn</code>, one of them will have type <code>Fn</code>, and the other will have type <code>Fn_</code>. You can see which node is
+which by looking at the documentation, which contains the original tree-sitter name. The disambiguation is guaranteed to
+be deterministic.</p>
+<p>Naming rules also determine the module. Unnamed nodes and symbols are in modules specifically to reduce naming conflicts
+without having to disambiguate the nodes as described above.</p>
+<ul>
+<li>Unnamed and contains symbols: <code>symbol::</code>.</li>
+<li>Unnamed and doesn’t contain symbols: <code>unnamed::</code>.</li>
+<li>Otherwise the node is at the toplevel of the generated source.</li>
+</ul>
+<p>The source for all this is <a href="type-sitter-gen/src/node_types/rust_names.rs">
+<code>type-sitter-gen/src/node_types/rust_names.rs</code></a>.</p>
+<h4 id="naming-rule-examples"><a class="doc-anchor" href="#naming-rule-examples">§</a>Naming Rule Examples</h4>
+<ul>
+<li><code>_declaration_statement</code> ⇒ <code>DeclarationStatement</code></li>
+<li><code>use_declaration</code> ⇒ <code>UseDeclaration</code></li>
+<li><code>self</code> ⇒ <code>unnamed::Self_</code></li>
+<li><code>%</code> ⇒ <code>symbols::Mod</code></li>
+<li><code>mod</code> ⇒ <code>unnamed::Mod</code></li>
+<li><code>true</code> selector ⇒ <code>r#true</code> (<code>true</code> ⇒ <code>unnamed::True</code>)</li>
+</ul>
+<h4 id="query-capture-naming-rules"><a class="doc-anchor" href="#query-capture-naming-rules">§</a>Query Capture Naming Rules</h4>
+<p>Query capture naming rules are the exact same as node rules, except that in captures, <code>.</code> is interpreted as <code>_</code> when
+converting to camel-case (e.g. <code>method.definition</code> =&gt; <code>MethodDefinition</code> and <code>method_definition</code>).</p>
+<h3 id="comparison-to-rust-sitter"><a class="doc-anchor" href="#comparison-to-rust-sitter">§</a>Comparison to <a href="https://www.shadaj.me/writing/introducing-rust-sitter">rust-sitter</a></h3>
+<p><a href="https://www.shadaj.me/writing/introducing-rust-sitter">rust-sitter</a> is the primary alternative which also provides
+convenience over tree-sitter’s Rust API. However, rust-sitter takes a much different approach by fully generating the
+tree-sitter grammar from a Rust file.</p>
+<p>Advantages of type-sitter:</p>
+<ul>
+<li>arbitrary tree-sitter grammars, not only ones written in Rust</li>
+<li>Error node and incremental parsing support, since typed nodes directly wrap <code>tree-sitter</code> nodes</li>
+<li>Less API difference from the native tree-sitter API: if you don’t use the <code>yak-sitter</code> feature it only provides typed
+wrappers for nodes (and even <code>yak-sitter</code> isn’t much different)</li>
+<li>Less complexity because of the above</li>
+</ul>
+<p>Advantages of rust-sitter:</p>
+<ul>
+<li>More control over the typed nodes, since you define them yourself</li>
+<li>May generate less boilerplate especially because of the extra control</li>
+<li>Less verbosity since extra and error nodes are implicitly handled</li>
+<li>type-sitter is in the much earlier stages</li>
+</ul>
+<h3 id="contributing"><a class="doc-anchor" href="#contributing">§</a>Contributing</h3>
+<p>Feel free to submit an issue or pull request if you want a new feature or anything is missing, and don’t hesitate to
+submit an issue if you encounter any bugs or have any questions.</p>
+<h3 id="licence"><a class="doc-anchor" href="#licence">§</a>Licence</h3>
+<p>The code is licensed under MIT or Apache 2.0 (you choose), which is the norm for Rust packages.</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="raw/index.html" title="mod type_sitter::raw">raw</a></dt><dd>Rust Tree-sitter</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Error.html" title="struct type_sitter::Error">Error</a></dt><dd>A stub node that indicates a localized parse error.</dd><dt><a class="struct" href="struct.Extra.html" title="struct type_sitter::Extra">Extra</a></dt><dd>A node that can annotate any other node, e.g. a comment.</dd><dt><a class="struct" href="struct.IncludedRangesError.html" title="struct type_sitter::IncludedRangesError">Included<wbr>Ranges<wbr>Error</a></dt><dd>An error that occurred in <a href="raw/struct.Parser.html#method.set_included_ranges" title="method type_sitter::raw::Parser::set_included_ranges"><code>Parser::set_included_ranges</code></a>.</dd><dt><a class="struct" href="struct.IncorrectKind.html" title="struct type_sitter::IncorrectKind">Incorrect<wbr>Kind</a></dt><dd>Error when attempting to wrap a node of the wrong kind</dd><dt><a class="struct" href="struct.InputEdit.html" title="struct type_sitter::InputEdit">Input<wbr>Edit</a></dt><dd>A summary of a change to a text document.</dd><dt><a class="struct" href="struct.Language.html" title="struct type_sitter::Language">Language</a></dt><dd>An opaque object that defines how to parse a particular language. The code
+for each <code>Language</code> is generated by the Tree-sitter CLI.</dd><dt><a class="struct" href="struct.LanguageError.html" title="struct type_sitter::LanguageError">Language<wbr>Error</a></dt><dd>An error that occurred when trying to assign an incompatible <a href="struct.Language.html" title="struct type_sitter::Language"><code>Language</code></a> to
+a <a href="raw/struct.Parser.html" title="struct type_sitter::raw::Parser"><code>Parser</code></a>.</dd><dt><a class="struct" href="struct.LanguageRef.html" title="struct type_sitter::LanguageRef">Language<wbr>Ref</a></dt><dt><a class="struct" href="struct.Missing.html" title="struct type_sitter::Missing">Missing</a></dt><dd>A stub node that indicates another node was expected.</dd><dt><a class="struct" href="struct.Parser.html" title="struct type_sitter::Parser">Parser</a></dt><dd>A stateful object that this is used to produce a tree based on some source code.</dd><dt><a class="struct" href="struct.Point.html" title="struct type_sitter::Point">Point</a></dt><dd>A position in a multi-line text document, in terms of rows and columns.</dd><dt><a class="struct" href="struct.QueryCaptures.html" title="struct type_sitter::QueryCaptures">Query<wbr>Captures</a></dt><dd>Iterate a query’s captures (see [RawQueryCaptures])</dd><dt><a class="struct" href="struct.QueryCursor.html" title="struct type_sitter::QueryCursor">Query<wbr>Cursor</a></dt><dd>Wraps <a href="raw/struct.QueryCursor.html" title="struct type_sitter::raw::QueryCursor">tree-sitter’s <code>QueryCursor</code></a> where <code>matches</code> and <code>captures</code> are always typed.</dd><dt><a class="struct" href="struct.QueryMatchCaptures.html" title="struct type_sitter::QueryMatchCaptures">Query<wbr>Match<wbr>Captures</a></dt><dd>Captures from a <a href="trait.QueryMatch.html" title="trait type_sitter::QueryMatch"><code>QueryMatch</code></a></dd><dt><a class="struct" href="struct.QueryMatchCapturesIntoIter.html" title="struct type_sitter::QueryMatchCapturesIntoIter">Query<wbr>Match<wbr>Captures<wbr>Into<wbr>Iter</a></dt><dd>Iterate captures from a <a href="trait.QueryMatch.html" title="trait type_sitter::QueryMatch"><code>QueryMatch</code></a></dd><dt><a class="struct" href="struct.QueryMatches.html" title="struct type_sitter::QueryMatches">Query<wbr>Matches</a></dt><dd>Iterate a typed query’s matches (see <a href="raw/struct.QueryMatches.html" title="struct type_sitter::raw::QueryMatches">tree-sitter’s <code>QueryMatches</code></a>).</dd><dt><a class="struct" href="struct.QueryProperty.html" title="struct type_sitter::QueryProperty">Query<wbr>Property</a></dt><dd>A key-value pair associated with a particular pattern in a <a href="raw/struct.Query.html" title="struct type_sitter::raw::Query"><code>Query</code></a>.</dd><dt><a class="struct" href="struct.Range.html" title="struct type_sitter::Range">Range</a></dt><dd>A range of positions in a multi-line text document, both in terms of bytes
+and of rows and columns.</dd><dt><a class="struct" href="struct.Tree.html" title="struct type_sitter::Tree">Tree</a></dt><dt><a class="struct" href="struct.TreeCursor.html" title="struct type_sitter::TreeCursor">Tree<wbr>Cursor</a></dt><dd>A stateful object for walking a syntax tree efficiently. See <a href="raw/struct.TreeCursor.html" title="struct type_sitter::raw::TreeCursor"><code>raw::TreeCursor</code></a></dd><dt><a class="struct" href="struct.UntypedNamedNode.html" title="struct type_sitter::UntypedNamedNode">Untyped<wbr>Named<wbr>Node</a></dt><dd>A node that is untyped other than being named.</dd><dt><a class="struct" href="struct.UntypedNode.html" title="struct type_sitter::UntypedNode">Untyped<wbr>Node</a></dt><dd>A node that is untyped, but implements <a href="trait.Node.html" title="trait type_sitter::Node"><code>Node</code></a> anyways.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.IncorrectKindCause.html" title="enum type_sitter::IncorrectKindCause">Incorrect<wbr>Kind<wbr>Cause</a></dt><dd>Underlying cause of why the node is the wrong kind</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.HasChild.html" title="trait type_sitter::HasChild">HasChild</a></dt><dd>A node that has a single named child (besides <a href="raw/struct.Node.html#method.is_extra" title="method type_sitter::raw::Node::is_extra">extras</a>) and no
+fields.</dd><dt><a class="trait" href="trait.HasChildren.html" title="trait type_sitter::HasChildren">HasChildren</a></dt><dd>A node that has multiple named children (besides <a href="raw/struct.Node.html#method.is_extra" title="method type_sitter::raw::Node::is_extra">extras</a>) and no
+fields.</dd><dt><a class="trait" href="trait.HasOptionalChild.html" title="trait type_sitter::HasOptionalChild">HasOptional<wbr>Child</a></dt><dd>A node that has a single optional named child (besides <a href="raw/struct.Node.html#method.is_extra" title="method type_sitter::raw::Node::is_extra">extras</a>)
+and no fields.</dd><dt><a class="trait" href="trait.Node.html" title="trait type_sitter::Node">Node</a></dt><dd>Typed node wrapper.</dd><dt><a class="trait" href="trait.OptionNodeResultExt.html" title="trait type_sitter::OptionNodeResultExt">Option<wbr>Node<wbr>Result<wbr>Ext</a></dt><dd>Useful trait to unwrap an <code>Option&lt;NodeResult&lt;'tree, T&gt;&gt;</code></dd><dt><a class="trait" href="trait.Query.html" title="trait type_sitter::Query">Query</a></dt><dd>A query which can generate type-safe matches and captures, which contain <a href="Node">typed nodes</a></dd><dt><a class="trait" href="trait.QueryCapture.html" title="trait type_sitter::QueryCapture">Query<wbr>Capture</a></dt><dd>A capture from a <a href="trait.Query.html" title="trait type_sitter::Query"><code>Query</code></a> with <a href="trait.Node.html" title="trait type_sitter::Node">typed nodes</a></dd><dt><a class="trait" href="trait.QueryMatch.html" title="trait type_sitter::QueryMatch">Query<wbr>Match</a></dt><dd>A match from a <a href="trait.Query.html" title="trait type_sitter::Query"><code>Query</code></a> with <a href="Node">typed nodes</a></dd><dt><a class="trait" href="trait.StreamingIterator.html" title="trait type_sitter::StreamingIterator">Streaming<wbr>Iterator</a></dt><dd>An interface for dealing with streaming iterators.</dd></dl><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><dl class="item-table"><dt><a class="type" href="type.Never.html" title="type type_sitter::Never">Never</a></dt><dd>Never type (for the weird case when there is an accessor that can’t return anything)</dd><dt><a class="type" href="type.NodeResult.html" title="type type_sitter::NodeResult">Node<wbr>Result</a></dt><dd>Result of attempting to wrap a node</dd></dl></section></div></main></body></html>
