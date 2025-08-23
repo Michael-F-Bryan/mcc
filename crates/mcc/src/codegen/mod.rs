@@ -78,6 +78,14 @@ fn to_assembly<'db>(
                     tacky::BinaryOperator::Add => BinOpKind::Bin(asm::BinaryOperator::Add),
                     tacky::BinaryOperator::Sub => BinOpKind::Bin(asm::BinaryOperator::Sub),
                     tacky::BinaryOperator::Mul => BinOpKind::Bin(asm::BinaryOperator::Mul),
+                    tacky::BinaryOperator::And => BinOpKind::Bin(asm::BinaryOperator::And),
+                    tacky::BinaryOperator::Or => BinOpKind::Bin(asm::BinaryOperator::Or),
+                    tacky::BinaryOperator::LeftShift => {
+                        BinOpKind::Bin(asm::BinaryOperator::LeftShift)
+                    }
+                    tacky::BinaryOperator::RightShift => {
+                        BinOpKind::Bin(asm::BinaryOperator::RightShift)
+                    }
                     tacky::BinaryOperator::Div => BinOpKind::Div,
                     tacky::BinaryOperator::Mod => BinOpKind::Mod,
                 };

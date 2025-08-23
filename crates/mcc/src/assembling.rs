@@ -15,7 +15,7 @@ pub fn assemble_and_link(
     target: Triple,
 ) -> Result<(), CommandError> {
     let mut cmd = Command::new(cc);
-    cmd.arg("-o").arg(dest).arg("-g");
+    cmd.arg("-o").arg(dest);
 
     if matches!(target.operating_system, OperatingSystem::Darwin(_))
         && !matches!(target.architecture, Architecture::Aarch64(_))

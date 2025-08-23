@@ -56,7 +56,6 @@ struct Cli {
 }
 
 impl Cli {
-    #[tracing::instrument(level = "info", skip_all)]
     pub fn run(self) -> anyhow::Result<()> {
         let src = std::fs::read_to_string(&self.input)?;
         let db = mcc::Database::default();

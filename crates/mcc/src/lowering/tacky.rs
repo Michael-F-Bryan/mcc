@@ -45,6 +45,10 @@ pub enum BinaryOperator {
     Mul,
     Div,
     Mod,
+    And,
+    Or,
+    LeftShift,
+    RightShift,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

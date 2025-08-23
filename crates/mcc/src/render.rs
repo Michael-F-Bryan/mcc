@@ -149,6 +149,10 @@ impl<W: Write> AssemblyRenderer<W> {
             asm::BinaryOperator::Add => write!(self.writer, "addl"),
             asm::BinaryOperator::Sub => write!(self.writer, "subl"),
             asm::BinaryOperator::Mul => write!(self.writer, "imull"),
+            asm::BinaryOperator::And => write!(self.writer, "andl"),
+            asm::BinaryOperator::Or => write!(self.writer, "orl"),
+            asm::BinaryOperator::LeftShift => write!(self.writer, "shll"),
+            asm::BinaryOperator::RightShift => write!(self.writer, "shrl"),
         }
     }
 }

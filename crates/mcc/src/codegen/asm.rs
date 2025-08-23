@@ -46,6 +46,7 @@ pub enum Instruction {
 pub enum Operand {
     Imm(i32),
     Register(Register),
+    /// Somewhere on the stack, as a byte offset from `%rbp`.
     Stack(u32),
 }
 
@@ -60,6 +61,10 @@ pub enum BinaryOperator {
     Add,
     Sub,
     Mul,
+    And,
+    Or,
+    LeftShift,
+    RightShift,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

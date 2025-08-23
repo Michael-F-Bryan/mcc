@@ -215,6 +215,10 @@ impl<'db> FunctionContext<'db> {
             Op::Mul(_) => tacky::BinaryOperator::Mul,
             Op::Div(_) => tacky::BinaryOperator::Div,
             Op::Mod(_) => tacky::BinaryOperator::Mod,
+            Op::And(_) => tacky::BinaryOperator::And,
+            Op::Or(_) => tacky::BinaryOperator::Or,
+            Op::LtLt(_) => tacky::BinaryOperator::LeftShift,
+            Op::GtGt(_) => tacky::BinaryOperator::RightShift,
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Unknown binary operator")
