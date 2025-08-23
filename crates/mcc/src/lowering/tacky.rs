@@ -24,12 +24,27 @@ pub enum Instruction {
         src: Val,
         dst: Val,
     },
+    Binary {
+        op: BinaryOperator,
+        left_src: Val,
+        right_src: Val,
+        dst: Val,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UnaryOperator {
     Complement,
     Negate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

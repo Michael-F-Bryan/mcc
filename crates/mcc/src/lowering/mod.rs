@@ -136,7 +136,15 @@ impl<'db> FunctionContext<'db> {
             ast::Statement::ReturnStatement(r) => {
                 self.lower_return_statement(r);
             }
-            other => todo!("{:?}", other),
+            other => {
+                let diagnostic = Diagnostic::bug()
+                    .with_message("Unexpected AST node")
+                    .with_code(codes::type_check::UNIMPLEMENTED)
+                    .with_labels(vec![
+                        Label::primary(self.file, other.span()).with_message(other.kind()),
+                    ]);
+                diagnostic.accumulate(self.db);
+            }
         }
     }
 
@@ -156,10 +164,12 @@ impl<'db> FunctionContext<'db> {
         Some(())
     }
 
+    /// Lower an expression, returning a [`tacky::Val`] containing the result if successful.
     fn lower_expression(&mut self, expr: ast::Expression<'_>) -> Option<tacky::Val> {
         match expr {
             ast::Expression::NumberLiteral(literal) => self.lower_number_literal(literal),
             ast::Expression::UnaryExpression(unary) => self.lower_unary_expression(unary),
+            ast::Expression::BinaryExpression(binary) => self.lower_binary_expression(binary),
             ast::Expression::ParenthesizedExpression(expr) => {
                 match expr.child().ok()? {
                     ast::anon_unions::CommaExpression_CompoundStatement_Expression_PreprocDefined::Expression(expr) => {
@@ -188,6 +198,44 @@ impl<'db> FunctionContext<'db> {
                 None
             }
         }
+    }
+
+    fn lower_binary_expression(&mut self, binary: ast::BinaryExpression<'_>) -> Option<tacky::Val> {
+        let left = binary.left().ok()?.as_expression()?;
+        let right = binary.right().ok()?.as_expression()?;
+
+        let left = self.lower_expression(left)?;
+        let right = self.lower_expression(right)?;
+
+        type Op<'a> = ast::anon_unions::NotEq_Mod_And_AndAnd_Mul_Add_Sub_Div_Lt_LtLt_LtEq_EqEq_Gt_GtEq_GtGt_BitXor_Or_OrOr<'a>;
+
+        let op = match binary.operator().ok()? {
+            Op::Add(_) => tacky::BinaryOperator::Add,
+            Op::Sub(_) => tacky::BinaryOperator::Sub,
+            Op::Mul(_) => tacky::BinaryOperator::Mul,
+            Op::Div(_) => tacky::BinaryOperator::Div,
+            Op::Mod(_) => tacky::BinaryOperator::Mod,
+            other => {
+                let diagnostic = Diagnostic::bug()
+                    .with_message("Unknown binary operator")
+                    .with_code(codes::type_check::UNIMPLEMENTED)
+                    .with_labels(vec![
+                        Label::primary(self.file, binary.span()).with_message(other.kind()),
+                    ]);
+                diagnostic.accumulate(self.db);
+                return None;
+            }
+        };
+
+        let dst = tacky::Val::Var(self.temporary());
+        self.instructions.push(tacky::Instruction::Binary {
+            op,
+            left_src: left,
+            right_src: right,
+            dst: dst.clone(),
+        });
+
+        Some(dst)
     }
 
     fn lower_number_literal(&self, literal: ast::NumberLiteral<'_>) -> Option<tacky::Val> {

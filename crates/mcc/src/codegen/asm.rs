@@ -18,8 +18,26 @@ pub struct FunctionDefinition<'db> {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Instruction {
-    Mov { src: Operand, dst: Operand },
-    Unary { op: UnaryOperator, operand: Operand },
+    Mov {
+        src: Operand,
+        dst: Operand,
+    },
+    Unary {
+        op: UnaryOperator,
+        operand: Operand,
+    },
+    Binary {
+        op: BinaryOperator,
+        src: Operand,
+        dst: Operand,
+    },
+    /// Divide `EAX` by `src`, storing the quotient in `EAX` and the remainder
+    /// in `EDX`.
+    Idiv {
+        src: Operand,
+    },
+    /// Sign-extend the value from `EAX` into `EDX`.
+    Cdq,
     AllocateStack(u32),
     Ret,
 }
@@ -38,7 +56,15 @@ pub enum UnaryOperator {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Register {
     AX,
+    DX,
     R10,
 }

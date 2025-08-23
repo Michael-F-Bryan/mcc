@@ -100,6 +100,15 @@ impl<W: Write> AssemblyRenderer<W> {
                 writeln!(self.writer, "popq %rbp")?;
                 writeln!(self.writer, "ret")?;
             }
+            asm::Instruction::Binary { .. } => {
+                todo!();
+            }
+            asm::Instruction::Idiv { .. } => {
+                todo!();
+            }
+            asm::Instruction::Cdq => {
+                todo!();
+            }
         }
 
         Ok(())
@@ -116,6 +125,7 @@ impl<W: Write> AssemblyRenderer<W> {
     fn register(&mut self, reg: asm::Register) -> fmt::Result {
         match reg {
             asm::Register::AX => write!(self.writer, "%eax"),
+            asm::Register::DX => write!(self.writer, "%edx"),
             asm::Register::R10 => write!(self.writer, "%r10d"),
         }
     }

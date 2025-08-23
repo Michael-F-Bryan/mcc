@@ -58,6 +58,60 @@ fn to_assembly<'db>(
                 instructions.push(asm::Instruction::Mov { src, dst });
                 instructions.push(asm::Instruction::Unary { op, operand: dst });
             }
+            tacky::Instruction::Binary {
+                op,
+                left_src,
+                right_src,
+                dst,
+            } => {
+                let left_src = stack_locations.operand_for(left_src);
+                let right_src = stack_locations.operand_for(right_src);
+                let dst = stack_locations.operand_for(dst);
+
+                enum BinOpKind {
+                    Bin(asm::BinaryOperator),
+                    Div,
+                    Mod,
+                }
+
+                let op = match op {
+                    tacky::BinaryOperator::Add => BinOpKind::Bin(asm::BinaryOperator::Add),
+                    tacky::BinaryOperator::Sub => BinOpKind::Bin(asm::BinaryOperator::Sub),
+                    tacky::BinaryOperator::Mul => BinOpKind::Bin(asm::BinaryOperator::Mul),
+                    tacky::BinaryOperator::Div => BinOpKind::Div,
+                    tacky::BinaryOperator::Mod => BinOpKind::Mod,
+                };
+
+                match op {
+                    BinOpKind::Bin(op) => {
+                        instructions.push(asm::Instruction::Mov { src: left_src, dst });
+                        instructions.push(asm::Instruction::Binary {
+                            op,
+                            src: right_src,
+                            dst,
+                        });
+                    }
+                    BinOpKind::Div => {
+                        instructions.push(asm::Instruction::Mov {
+                            src: left_src,
+                            dst: asm::Operand::Register(asm::Register::AX),
+                        });
+                        instructions.push(asm::Instruction::Cdq);
+                        instructions.push(asm::Instruction::Idiv { src: right_src });
+                        instructions.push(asm::Instruction::Mov {
+                            src: asm::Operand::Register(asm::Register::AX),
+                            dst,
+                        });
+                    }
+                    BinOpKind::Mod => {
+                        instructions.push(asm::Instruction::Mov {
+                            src: left_src,
+                            dst: asm::Operand::Register(asm::Register::DX),
+                        });
+                        instructions.push(asm::Instruction::Cdq);
+                    },
+                }
+            }
         }
     }
 
