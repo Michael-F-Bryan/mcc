@@ -126,16 +126,17 @@ impl TestCase {
             let target = mcc::default_target();
             let src = std::fs::read_to_string(&path)?;
             let path_text = Text::from(path.display().to_string());
-            let kind_str = kind.invalid_reason();
 
             let source_file = SourceFile::new(&db, path_text, src.into());
 
             let output_path = temp.path().join("output_bin");
 
-            let mut cb = Callbacks {
-                expected_kind: kind_str.map(|s| s.to_string()),
-                expected,
+            let expectation = match &kind {
+                Kind::Valid => Expectation::Success(expected.unwrap()),
+                Kind::Invalid(reason) => Expectation::FailAtStage(reason.clone()),
             };
+
+            let mut cb = Callbacks { expectation };
 
             let cfg = DriverConfig {
                 db,
@@ -210,9 +211,43 @@ impl FromStr for Kind {
 }
 
 #[derive(Debug, Clone)]
+enum Expectation {
+    FailAtStage(String),
+    Success(TestResult),
+}
+
+#[derive(Debug, Clone)]
 struct Callbacks {
-    expected_kind: Option<String>,
-    expected: Option<TestResult>,
+    expectation: Expectation,
+}
+
+impl Callbacks {
+    fn handle_diags(
+        &self,
+        stages: &[&str],
+        diags: Vec<&Diagnostics>,
+    ) -> ControlFlow<Result<(), Error>> {
+        match &self.expectation {
+            Expectation::FailAtStage(stage) if stages.contains(&stage.as_str()) => {
+                if diags.is_empty() {
+                    ControlFlow::Break(Err(anyhow::anyhow!(
+                        "expected to error at the \"{stage}\" stage, but no diagnostics were emitted"
+                    )))
+                } else {
+                    ControlFlow::Break(Ok(()))
+                }
+            }
+            _ => {
+                if diags.is_empty() {
+                    ControlFlow::Continue(())
+                } else {
+                    ControlFlow::Break(Err(anyhow::anyhow!(
+                        "unexpected error at the {stages:?} stage:\n{diags:#?}"
+                    )))
+                }
+            }
+        }
+    }
 }
 
 impl mcc_driver::Callbacks for Callbacks {
@@ -225,15 +260,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _ast: mcc::types::Ast<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("lex" | "parse") = self.expected_kind.as_deref() {
-            if diags.is_empty() {
-                ControlFlow::Break(Err(anyhow::anyhow!("expected lex/parse error")))
-            } else {
-                ControlFlow::Break(Ok(()))
-            }
-        } else {
-            ControlFlow::Continue(())
-        }
+        self.handle_diags(&["lex", "parse"], diags)
     }
 
     fn after_lower<'db>(
@@ -242,15 +269,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _tacky: mcc::lowering::tacky::Program<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("tacky") = self.expected_kind.as_deref() {
-            if diags.is_empty() {
-                ControlFlow::Break(Err(anyhow::anyhow!("expected tacky error")))
-            } else {
-                ControlFlow::Break(Ok(()))
-            }
-        } else {
-            ControlFlow::Continue(())
-        }
+        self.handle_diags(&["tacky"], diags)
     }
 
     fn after_codegen<'db>(
@@ -259,15 +278,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _asm: mcc::codegen::asm::Program<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("codegen") = self.expected_kind.as_deref() {
-            if diags.is_empty() {
-                ControlFlow::Break(Err(anyhow::anyhow!("expected codegen error")))
-            } else {
-                ControlFlow::Break(Ok(()))
-            }
-        } else {
-            ControlFlow::Continue(())
-        }
+        self.handle_diags(&["codegen"], diags)
     }
 
     fn after_render_assembly(
@@ -276,26 +287,26 @@ impl mcc_driver::Callbacks for Callbacks {
         _asm: Text,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        if let Some("render") = self.expected_kind.as_deref() {
-            if diags.is_empty() {
-                ControlFlow::Break(Err(anyhow::anyhow!("expected render error")))
-            } else {
-                ControlFlow::Break(Ok(()))
-            }
-        } else {
-            ControlFlow::Continue(())
+        if !diags.is_empty() {
+            return ControlFlow::Break(Err(anyhow::anyhow!(
+                "Unexpected errors when rendering assembly"
+            )));
         }
+
+        ControlFlow::Continue(())
     }
 
     fn after_compile(&mut self, _db: &dyn mcc::Db, binary: PathBuf) -> ControlFlow<Self::Output> {
-        let Some(TestResult {
+        let TestResult {
             return_code,
             stdout: expected_stdout,
-        }) = &self.expected
-        else {
-            return ControlFlow::Break(Err(anyhow::anyhow!(
-                "There should be an expected result for this test"
-            )));
+        } = match &self.expectation {
+            Expectation::FailAtStage(stage) => {
+                return ControlFlow::Break(Err(anyhow::anyhow!(
+                    "Compilation should have errored out at the \"{stage}\" stage"
+                )));
+            }
+            Expectation::Success(expected) => expected,
         };
 
         let Output { status, stdout, .. } = match Command::new(&binary)

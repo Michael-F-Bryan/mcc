@@ -36,10 +36,10 @@ pub fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> tacky::Pr
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Unexpected AST node")
-                    .with_code(codes::types::UNIMPLEMENTED)
+                    .with_code(codes::type_check::UNIMPLEMENTED)
                     .with_labels(vec![
                         Label::primary(file, Span::for_node(*other.raw()))
-                            .with_message("error occurred here"),
+                            .with_message(other.kind()),
                     ]);
                 diagnostic.accumulate(db);
             }
@@ -168,9 +168,9 @@ impl<'db> FunctionContext<'db> {
                     _ => {
                         let diagnostic = Diagnostic::bug()
                             .with_message("Unexpected AST node")
-                            .with_code(codes::types::UNIMPLEMENTED)
+                            .with_code(codes::type_check::UNIMPLEMENTED)
                             .with_labels(vec![
-                                Label::primary(self.file, expr.span()).with_message("error occurred here"),
+                                Label::primary(self.file, expr.span()).with_message(expr.kind()),
                             ]);
                         diagnostic.accumulate(self.db);
                         None
@@ -180,9 +180,9 @@ impl<'db> FunctionContext<'db> {
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Unexpected AST node")
-                    .with_code(codes::types::UNIMPLEMENTED)
+                    .with_code(codes::type_check::UNIMPLEMENTED)
                     .with_labels(vec![
-                        Label::primary(self.file, other.span()).with_message("error occurred here"),
+                        Label::primary(self.file, other.span()).with_message(other.kind()),
                     ]);
                 diagnostic.accumulate(self.db);
                 None

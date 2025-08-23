@@ -86,7 +86,7 @@ pub mod codes {
             const MISSING_TOKEN: &str = "missing_token";
         }
 
-        types {
+        type_check {
             /// This part of the type checker isn't implemented.
             const UNIMPLEMENTED: &str = "unimplemented";
         }
