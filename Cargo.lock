@@ -519,6 +519,7 @@ dependencies = [
  "tracing",
  "tree-sitter",
  "tree-sitter-c",
+ "tree-sitter-query",
  "type-sitter",
 ]
 
@@ -1201,6 +1202,15 @@ name = "tree-sitter-language"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4013970217383f67b18aef68f6fb2e8d409bc5755227092d32efb0422ba24b8"
+
+[[package]]
+name = "tree-sitter-query"
+version = "0.6.2"
+source = "git+https://github.com/tree-sitter-grammars/tree-sitter-query#2668cc53024953224a40b1e6546d7b8ec5a11150"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
 
 [[package]]
 name = "type-sitter"

@@ -26,17 +26,15 @@ The main compilation stages are implemented as separate modules:
 - **`lowering`** - Transforms AST into Three Address Code (TAC) intermediate representation
 - **`codegen`** - Lowers TAC to a target-agnostic assembly IR (`codegen::asm`)
 - **`render`** - Renders the assembly IR to textual assembly, with OS-specific conventions (e.g. leading underscore on macOS symbols)
-- **`assembling`** - Invokes the system compiler to assemble the emitted assembly file. Note: currently assembles to an object file; full linking is not implemented yet
+- **`assembling`** - Invokes the system compiler to assemble the emitted assembly file into an executable
 
 ### Data Flow
 
 The compilation follows a linear pipeline where each stage consumes the output of the previous stage:
 
 ```
-Source File → Preprocessing → Parsing → Lowering (TAC) → Codegen (ASM IR) → Rendering (assembly text) → Assembling (object file)
+Source File → Preprocessing → Parsing → Lowering (TAC) → Codegen (ASM IR) → Rendering (assembly text) → Assembling
 ```
-
-Linking is planned but not yet implemented. The `assembling` stage currently produces an object file using the system compiler and returns early.
 
 Each stage is implemented as a Salsa tracked function, enabling incremental compilation and caching of intermediate results.
 
@@ -44,7 +42,7 @@ Each stage is implemented as a Salsa tracked function, enabling incremental comp
 
 - **`SourceFile`** - Represents a source file with path and contents
 - **`Ast`** - Wraps the tree-sitter parse tree with strongly-typed accessors
-- **`lowering::tacky::Program`** - Three Address Code (TAC) IR
+- **`tacky::Program`** - Three Address Code (TAC) IR
 - **`codegen::asm::Program`** - Assembly IR (prior to textual rendering)
 - **`Database` / `Db`** - Salsa database/trait for incremental compilation
 - **`Diagnostics`** - Salsa accumulator newtype for collecting `codespan-reporting` diagnostics; stages push diagnostics instead of failing

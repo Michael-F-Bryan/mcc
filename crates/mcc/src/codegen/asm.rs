@@ -16,16 +16,13 @@ pub struct FunctionDefinition<'db> {
     pub span: Span,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Instruction {
-    Mov {
-        src: Operand,
-        dst: Operand,
-    },
-    Unary {
-        op: UnaryOperator,
-        operand: Operand,
-    },
+    /// Move a value from one operand to another.
+    Mov { src: Operand, dst: Operand },
+    /// Apply a unary operator to an operand.
+    Unary { op: UnaryOperator, operand: Operand },
+    /// Apply a binary operator to two operands.
     Binary {
         op: BinaryOperator,
         src: Operand,
@@ -33,18 +30,29 @@ pub enum Instruction {
     },
     /// Divide `EAX` by `src`, storing the quotient in `EAX` and the remainder
     /// in `EDX`.
-    Idiv {
-        src: Operand,
-    },
+    Idiv { src: Operand },
     /// Sign-extend the value from `EAX` into `EDX`.
     Cdq,
+    /// Allocate `n` bytes on the stack.
     AllocateStack(u32),
+    /// Return from the current function.
     Ret,
+    /// A label.
+    Label(Text),
+    /// Jump to a label.
+    Jump { target: Text },
+    /// Jump to a label if the condition is zero.
+    JumpIfZero { condition: Operand, target: Text },
+    /// Jump to a label if the condition is not zero.
+    JumpIfNotZero { condition: Operand, target: Text },
 }
 
+/// An operand is a value that can be used in an instruction.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Operand {
+    /// A constant value.
     Imm(i32),
+    /// A named register.
     Register(Register),
     /// Somewhere on the stack, as a byte offset from `%rbp`.
     Stack(u32),
@@ -53,6 +61,7 @@ pub enum Operand {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum UnaryOperator {
     Neg,
+    Complement,
     Not,
 }
 

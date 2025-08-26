@@ -88,6 +88,7 @@ fn to_assembly<'db>(
                     }
                     tacky::BinaryOperator::Div => BinOpKind::Div,
                     tacky::BinaryOperator::Mod => BinOpKind::Mod,
+                    _ => todo!(),
                 };
 
                 match op {
@@ -132,6 +133,26 @@ fn to_assembly<'db>(
                     }
                 }
             }
+            tacky::Instruction::Copy { src, dst } => {
+                let src = stack_locations.operand_for(src);
+                let dst = stack_locations.operand_for(dst);
+
+                instructions.push(asm::Instruction::Mov { src, dst });
+            }
+            tacky::Instruction::Jump { target } => {
+                instructions.push(asm::Instruction::Jump { target });
+            }
+            tacky::Instruction::Label(target) => {
+                instructions.push(asm::Instruction::Label(target));
+            }
+            tacky::Instruction::JumpIfZero { condition, target } => {
+                let condition = stack_locations.operand_for(condition);
+                instructions.push(asm::Instruction::JumpIfZero { condition, target });
+            }
+            tacky::Instruction::JumpIfNotZero { condition, target } => {
+                let condition = stack_locations.operand_for(condition);
+                instructions.push(asm::Instruction::JumpIfZero { condition, target });
+            }
         }
     }
 
@@ -147,7 +168,8 @@ fn to_assembly<'db>(
 fn unary_operator_to_asm(op: tacky::UnaryOperator) -> asm::UnaryOperator {
     match op {
         tacky::UnaryOperator::Negate => asm::UnaryOperator::Neg,
-        tacky::UnaryOperator::Complement => asm::UnaryOperator::Not,
+        tacky::UnaryOperator::Complement => asm::UnaryOperator::Complement,
+        tacky::UnaryOperator::Not => asm::UnaryOperator::Not,
     }
 }
 

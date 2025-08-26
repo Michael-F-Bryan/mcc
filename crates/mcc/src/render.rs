@@ -116,6 +116,16 @@ impl<W: Write> AssemblyRenderer<W> {
             asm::Instruction::Cdq => {
                 writeln!(self.writer, "cdq")?;
             }
+            asm::Instruction::Label(text) => {
+                writeln!(self.writer, "{text}:")?;
+            }
+            asm::Instruction::Jump { target } => {
+                writeln!(self.writer, "jmp {target}")?;
+            }
+            asm::Instruction::JumpIfZero { .. } => {
+                todo!()
+            }
+            asm::Instruction::JumpIfNotZero { .. } => todo!(),
         }
 
         Ok(())
@@ -140,7 +150,7 @@ impl<W: Write> AssemblyRenderer<W> {
     fn unary_operator(&mut self, op: asm::UnaryOperator) -> fmt::Result {
         match op {
             asm::UnaryOperator::Neg => write!(self.writer, "negl"),
-            asm::UnaryOperator::Not => write!(self.writer, "notl"),
+            asm::UnaryOperator::Complement | asm::UnaryOperator::Not => write!(self.writer, "notl"),
         }
     }
 
