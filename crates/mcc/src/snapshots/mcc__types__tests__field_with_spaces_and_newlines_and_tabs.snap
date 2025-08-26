@@ -2,6 +2,10 @@
 source: crates/mcc/src/types.rs
 expression: formatted
 ---
-(a :b 
-  c 
-  d)
+(translation_unit
+  (ERROR
+    (identifier)
+    (:)
+    type: (type_identifier)
+    (identifier)
+    (identifier)))

@@ -1,5 +1,6 @@
 ---
 source: crates/mcc/src/types.rs
+description: void main();
 expression: formatted
 ---
 (translation_unit
@@ -8,6 +9,6 @@ expression: formatted
     declarator: (function_declarator
       declarator: (identifier)
       parameters: (parameter_list
-        (()
-        ())))
-    (;)))
+        ("(")
+        (")")))
+    (";")))

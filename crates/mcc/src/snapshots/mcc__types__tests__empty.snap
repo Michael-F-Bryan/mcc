@@ -2,4 +2,4 @@
 source: crates/mcc/src/types.rs
 expression: formatted
 ---
-()
+(translation_unit)

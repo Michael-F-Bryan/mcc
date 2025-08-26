@@ -1,10 +1,7 @@
 ---
 source: crates/mcc/src/types.rs
+description: /* */
 expression: formatted
 ---
 (translation_unit
-  (ERROR
-    type: (primitive_type)
-    (())
-  (expression_statement
-    (;)))
+  (comment))

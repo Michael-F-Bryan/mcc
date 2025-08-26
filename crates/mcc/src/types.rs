@@ -1,4 +1,7 @@
-use std::ops::Deref;
+use std::{
+    fmt::{self, Display},
+    ops::Deref,
+};
 
 use mcc_syntax::ast::TranslationUnit;
 use type_sitter::Node;
@@ -22,14 +25,103 @@ pub struct Ast<'db> {
 
 #[salsa::tracked]
 impl<'db> Ast<'db> {
-    pub fn sexpr(&self, db: &'db dyn Db) -> String {
-        let raw = self.tree(db).root_node().to_sexp();
-        format_sexpr(&raw)
+    pub fn sexpr(&self, db: &'db dyn Db) -> impl Display {
+        SexpPrinter::new(self.tree(db).root_node())
     }
 
     pub fn root(&self, db: &'db dyn Db) -> TranslationUnit<'db> {
         let root = self.tree(db).root_node();
         TranslationUnit::try_from_raw(root).unwrap()
+    }
+}
+
+#[derive(Clone)]
+struct SexpPrinter<'db> {
+    node: tree_sitter::Node<'db>,
+    indent: usize,
+}
+
+impl<'db> SexpPrinter<'db> {
+    fn new(node: tree_sitter::Node<'db>) -> Self {
+        Self { node, indent: 0 }
+    }
+}
+
+impl<'db> Display for SexpPrinter<'db> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn write_indent(f: &mut fmt::Formatter<'_>, indent: usize) -> fmt::Result {
+            for _ in 0..indent {
+                write!(f, "  ")?;
+            }
+            Ok(())
+        }
+
+        fn escape_quoted_atom(s: &str) -> String {
+            let mut out = String::with_capacity(s.len() + 4);
+            for ch in s.chars() {
+                match ch {
+                    '"' => out.push_str("\\\""),
+                    '\\' => out.push_str("\\\\"),
+                    _ => out.push(ch),
+                }
+            }
+            out
+        }
+
+        fn write_node(
+            f: &mut fmt::Formatter<'_>,
+            node: tree_sitter::Node<'_>,
+            indent: usize,
+            emit_indent: bool,
+        ) -> fmt::Result {
+            if emit_indent {
+                write_indent(f, indent)?;
+            }
+
+            // Handle missing nodes specially to match tree-sitter's S-expression output
+            if node.is_missing() {
+                let kind = node.kind();
+                let quoted = escape_quoted_atom(kind);
+                write!(f, "(MISSING \"{quoted}\")")?;
+                return Ok(());
+            }
+
+            let is_error = node.is_error();
+            if is_error {
+                write!(f, "(ERROR")?;
+            } else {
+                let k = node.kind();
+                if k.contains(|c: char| !c.is_alphanumeric() && c != '_') {
+                    write!(f, "(\"{k}\"")?;
+                } else {
+                    write!(f, "({k}")?;
+                }
+            }
+
+            let child_count = node.child_count();
+            if child_count > 0 {
+                // Each child on its own line, indented one level deeper
+                for i in 0..child_count {
+                    // Safety: index is in-bounds per child_count
+                    if let Some(child) = node.child(i) {
+                        writeln!(f)?;
+                        write_indent(f, indent + 1)?;
+
+                        if let Some(field_name) = node.field_name_for_child(i as u32) {
+                            write!(f, "{field_name}: ")?;
+                            // Child already has indentation emitted above; don't emit again here
+                            write_node(f, child, indent + 1, false)?;
+                        } else {
+                            write_node(f, child, indent + 1, false)?;
+                        }
+                    }
+                }
+            }
+
+            write!(f, ")")
+        }
+
+        write_node(f, self.node, self.indent, true)
     }
 }
 
@@ -63,93 +155,6 @@ impl std::hash::Hash for Tree {
     }
 }
 
-/// A quick'n'dirty s-expression pretty-printer.
-fn format_sexpr(raw: &str) -> String {
-    let mut result = String::new();
-    let mut depth = 0;
-    let mut in_word = false;
-    let mut after_colon = false;
-    let mut chars = raw.chars().peekable();
-
-    while let Some(c) = chars.next() {
-        match c {
-            '(' => {
-                if in_word {
-                    result.push(' ');
-                    in_word = false;
-                }
-                if !after_colon {
-                    result.push('\n');
-                    result.extend(std::iter::repeat_n("  ", depth));
-                }
-                result.push('(');
-                depth += 1;
-                after_colon = false;
-            }
-            ')' => {
-                depth = depth.checked_sub(1).expect("Mismatched parentheses");
-                result.push(')');
-                in_word = false;
-                after_colon = false;
-            }
-            ' ' | '\n' | '\t' => {
-                if in_word {
-                    result.push(' ');
-                    in_word = false;
-                }
-                // Preserve original whitespace after fields
-                if after_colon {
-                    result.push(c);
-                }
-            }
-            ':' => {
-                result.push(c);
-                after_colon = true;
-                in_word = true;
-            }
-            '\\' => {
-                // Handle escaped characters
-                if let Some(next_char) = chars.next() {
-                    // For escaped quotes, just output the quote without the backslash
-                    if next_char == '"' {
-                        result.push('"');
-                    } else {
-                        result.push(c);
-                        result.push(next_char);
-                    }
-                    in_word = true;
-                } else {
-                    result.push(c);
-                    in_word = true;
-                }
-            }
-            _ => {
-                // Only add newline if we're not after a colon and not already at the start of a line
-                if !in_word && !result.ends_with('(') && !after_colon {
-                    result.push('\n');
-                    result.extend(std::iter::repeat_n("  ", depth));
-                }
-                result.push(c);
-                in_word = true;
-                // Reset after_colon only for non-whitespace characters
-                if c != ' ' && c != '\n' && c != '\t' {
-                    after_colon = false;
-                }
-            }
-        }
-    }
-
-    let trimmed = result.trim_start().to_string();
-
-    // Only add leading newline for complex nested structures
-    // Check if the input has multiple nested levels or is the translation_unit case
-    if raw.contains("translation_unit") || raw.matches('(').count() > 3 {
-        format!("\n{trimmed}")
-    } else {
-        trimmed
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,7 +163,7 @@ mod tests {
         (
             $(
                 $(#[$meta:meta])*
-                $name:ident : $sexpr:expr => $expected:expr
+                $name:ident : $sexpr:expr
             ),*
             $(,)?
         ) => {
@@ -166,38 +171,30 @@ mod tests {
                 $(#[$meta])*
                 #[test]
                 fn $name() {
-                    let formatted = format_sexpr($sexpr);
-                    assert_eq!(formatted, $expected);
-                    insta::assert_snapshot!(formatted);
+                    let mut parser = tree_sitter::Parser::new();
+                    parser.set_language(&tree_sitter_c::LANGUAGE.into()).unwrap();
+                    let tree = parser.parse($sexpr, None).unwrap();
+                    let root = tree.root_node();
+
+                    println!("{}", root.to_sexp());
+                    insta::with_settings!(
+                        { description => $sexpr },
+                        {
+                            let formatted = SexpPrinter::new(root).to_string();
+                            insta::assert_snapshot!(formatted);
+                        }
+                    );
                 }
             )*
         };
     }
 
     sexpr_test! {
-        test_empty: "()" => "()",
-        test_one_element: "(a)" => "(a)",
-        test_nested: "(a (b c))" => "(a \n  (b \n    c))",
-        test_field: "(a :b c)" => "(a :b \n  c)",
-        test_field_with_spaces_and_newlines: "(a :b\nc d)" => "(a :b \n  c \n  d)",
-        test_field_with_spaces_and_newlines_and_tabs: "(a :b\tc d)" => "(a :b \n  c \n  d)",
-        #[ignore]
-        translation_unit: r#"(translation_unit (function_definition type: (primitive_type) declarator: (function_declarator declarator: (identifier) parameters: (parameter_list (parameter_declaration type: (primitive_type)))) body: (compound_statement (return_statement (parenthesized_expression (unary_expression (ERROR) argument: (number_literal)) (MISSING \")\"))))))"# =>
-r#"
-(translation_unit
-  (function_definition
-    type: (primitive_type)
-    declarator: (function_declarator
-      declarator: (identifier)
-      parameters: (parameter_list
-        (parameter_declaration
-          type: (primitive_type))))
-    body: (compound_statement
-      (return_statement
-        (parenthesized_expression
-          (unary_expression
-            (ERROR)
-            argument: (number_literal))
-          (MISSING ")")))))))"#,
+        empty: "",
+        comment: "/* */",
+        declaration: "int x;",
+        function_definition: "void main();",
+        function_call: "void main(void)",
+        unclosed_paren: "int (",
     }
 }

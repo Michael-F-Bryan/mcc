@@ -2,5 +2,14 @@
 source: crates/mcc/src/types.rs
 expression: formatted
 ---
-(a :b 
-  c)
+(translation_unit
+  (declaration
+    type: (primitive_type)
+    declarator: (function_declarator
+      declarator: (identifier)
+      parameters: (parameter_list
+        (()
+        (parameter_declaration
+          type: (primitive_type))
+        ())))
+    (MISSING ";")))

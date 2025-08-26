@@ -1,10 +1,10 @@
 ---
 source: crates/mcc/src/types.rs
+description: int x;
 expression: formatted
 ---
 (translation_unit
-  (ERROR
+  (declaration
     type: (primitive_type)
-    (())
-  (expression_statement
-    (;)))
+    declarator: (identifier)
+    (";")))
