@@ -1,0 +1,1 @@
+searchState.loadedDescShard("escape8259", 0, "<code>escape8259</code> performs RFC8259-compliant string escaping and …\nAn error occurred while unescaping.\nEscape a string, following RFC8259 rules.\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nUn-escape a string, following RFC8259 rules.")
