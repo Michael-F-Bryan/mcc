@@ -7,18 +7,19 @@ mod debug;
 pub mod diagnostics;
 mod files;
 pub mod lowering;
+mod macros;
 mod parsing;
 mod preprocessing;
 pub mod render;
 mod text;
 pub mod types;
-mod macros;
 
 use std::fmt::{self, Debug};
 
 pub use crate::{
-    assembling::assemble_and_link, cmd::CommandError, debug::SerializeWithDatabase, files::Files,
-    parsing::parse, preprocessing::preprocess, text::Text,
+    assembling::assemble_and_link, cmd::CommandError, codegen::generate_assembly,
+    debug::SerializeWithDatabase, files::Files, lowering::lower, parsing::parse,
+    preprocessing::preprocess, text::Text,
 };
 
 use target_lexicon::{Architecture, Triple};

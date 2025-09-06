@@ -1,0 +1,28 @@
+---
+source: crates/mcc/src/codegen/mod.rs
+expression: assembly.serialize_with_db(&db)
+---
+{
+  "functions": [
+    {
+      "name": "main",
+      "instructions": [
+        {
+          "Mov": {
+            "src": {
+              "Imm": 0
+            },
+            "dst": {
+              "Register": "AX"
+            }
+          }
+        },
+        "Ret"
+      ],
+      "span": {
+        "start": 0,
+        "length": 28
+      }
+    }
+  ]
+}

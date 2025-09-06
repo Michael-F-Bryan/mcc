@@ -38,6 +38,7 @@ fn serialize_named_fields(
             }
         }
     });
+    let num_fields = fields.len();
 
     let mut child_generics = input.generics.clone();
     let lifetime: syn::GenericParam = syn::parse_quote!('_ref);
@@ -61,11 +62,12 @@ fn serialize_named_fields(
                         where
                             S: serde::Serializer,
                         {
-                            let mut state = serializer.serialize_struct(#name, 2)?;
+                            let mut state = serializer.serialize_struct(#name, #num_fields)?;
                             #(#serialize_fields)*
                             state.end()
                         }
                     }
+                    Impl { db, inner: self }
                 }
             }
         };

@@ -258,3 +258,20 @@ fn fix_up_instructions<'db>(
 
     asm::FunctionDefinition::new(db, function.name(db), instructions, function.span(db))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{SerializeWithDatabase, types::SourceFile};
+
+    #[test]
+    fn simplest_program() {
+        let src = "int main(void) { return 0; }";
+        let db = salsa::DatabaseImpl::default();
+        let file = SourceFile::new(&db, "main.c".into(), src.into());
+        let ast = crate::parse(&db, file);
+        let tacky = crate::lower(&db, ast, file);
+        let assembly = crate::generate_assembly(&db, tacky);
+
+        insta::assert_json_snapshot!(assembly.serialize_with_db(&db));
+    }
+}
