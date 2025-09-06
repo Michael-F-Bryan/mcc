@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["codes"],"struct":["Diagnostics"],"trait":["DiagnosticExt"],"type":["Diagnostic"]};
