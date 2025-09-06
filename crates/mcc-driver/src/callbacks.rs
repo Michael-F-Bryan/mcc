@@ -106,12 +106,12 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
         return Outcome::EarlyReturn(ret);
     }
 
-    let assembly = match mcc::render::render_program(&db, program, target.clone()) {
+    let assembly = match mcc::render_program(&db, program, target.clone()) {
         Ok(assembly) => assembly,
         Err(e) => return Outcome::Err(e.into()),
     };
     let diags: Vec<&Diagnostics> =
-        mcc::render::render_program::accumulated::<Diagnostics>(&db, program, target.clone());
+        mcc::render_program::accumulated::<Diagnostics>(&db, program, target.clone());
 
     if let ControlFlow::Break(ret) = cb.after_render_assembly(&db, assembly.clone(), diags) {
         return Outcome::EarlyReturn(ret);
