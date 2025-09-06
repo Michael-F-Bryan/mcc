@@ -49,11 +49,13 @@ macro_rules! codes {
 
     // Handle a module with constants
     (
+        $(#[$mod_doc:meta])*
         $module:ident {
             $($(#[$doc:meta])* const $const_name:ident: &str = $value:expr;)*
         }
         $($rest:tt)*
     ) => {
+        $( #[$mod_doc] )*
         pub mod $module {
             $(
                 $(#[$doc])*
@@ -65,11 +67,13 @@ macro_rules! codes {
 
     // Handle nested modules
     (
+        $(#[$mod_doc:meta])*
         $module:ident {
             $($nested:tt)*
         }
         $($rest:tt)*
     ) => {
+        $( #[$mod_doc] )*
         pub mod $module {
             $crate::codes!($($nested)*);
         }
@@ -77,8 +81,10 @@ macro_rules! codes {
     };
 }
 
+/// Pre-defined error codes for common compiler diagnostics.
 pub mod codes {
     codes! {
+        /// Errors that can occur during parsing.
         parse {
             /// The parser encountered an unexpected token.
             const UNEXPECTED_TOKEN: &str = "unexpected_token";
@@ -86,6 +92,7 @@ pub mod codes {
             const MISSING_TOKEN: &str = "missing_token";
         }
 
+        /// Errors that can occur during type checking.
         type_check {
             /// This part of the type checker isn't implemented.
             const UNIMPLEMENTED: &str = "unimplemented";
