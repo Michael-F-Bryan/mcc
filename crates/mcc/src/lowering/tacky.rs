@@ -6,11 +6,13 @@ use mcc_syntax::Span;
 
 use crate::Text;
 
+#[derive(mcc_macros::SerializeWithDatabase)]
 #[salsa::tracked]
 pub struct Program<'db> {
     pub functions: Vec<FunctionDefinition<'db>>,
 }
 
+#[derive(mcc_macros::SerializeWithDatabase)]
 #[salsa::tracked]
 pub struct FunctionDefinition<'db> {
     pub name: Text,
@@ -18,7 +20,7 @@ pub struct FunctionDefinition<'db> {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Instruction {
     Return(Val),
     Unary {
@@ -50,14 +52,14 @@ pub enum Instruction {
     Label(Text),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum UnaryOperator {
     Complement,
     Negate,
     Not,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum BinaryOperator {
     Add,
     Sub,
@@ -76,13 +78,13 @@ pub enum BinaryOperator {
     GreaterThanOrEqual,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Val {
     Constant(i32),
     Var(Variable),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Variable {
     Named(Text),
     Anonymous(u32),

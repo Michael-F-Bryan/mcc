@@ -8,6 +8,7 @@ use type_sitter::Node;
 
 use crate::{Db, Text};
 
+#[derive(mcc_macros::SerializeWithDatabase)]
 #[salsa::input]
 #[derive(Debug)]
 pub struct SourceFile {

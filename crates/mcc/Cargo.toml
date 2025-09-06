@@ -12,8 +12,10 @@ version.workspace = true
 
 [dependencies]
 codespan-reporting = { workspace = true }
+mcc-macros = { version = "0.0.0", path = "../mcc-macros" }
 mcc-syntax = { version = "0.0.0", path = "../mcc-syntax" }
 salsa = { workspace = true }
+serde = { workspace = true }
 target-lexicon = "0.13.2"
 thiserror = { workspace = true }
 tracing = { workspace = true }

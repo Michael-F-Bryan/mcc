@@ -10,6 +10,25 @@ impl Text {
     }
 }
 
+impl serde::Serialize for Text {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Text {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Text(s.into()))
+    }
+}
+
 impl From<&str> for Text {
     fn from(s: &str) -> Self {
         Self(s.into())

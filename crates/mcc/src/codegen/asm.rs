@@ -4,19 +4,23 @@ use mcc_syntax::Span;
 
 use crate::Text;
 
+#[derive(mcc_macros::SerializeWithDatabase)]
 #[salsa::tracked]
+#[derive(Debug)]
 pub struct Program<'db> {
     pub functions: Vec<FunctionDefinition<'db>>,
 }
 
+#[derive(mcc_macros::SerializeWithDatabase)]
 #[salsa::tracked]
+#[derive(Debug)]
 pub struct FunctionDefinition<'db> {
     pub name: Text,
     pub instructions: Vec<Instruction>,
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Instruction {
     /// Move a value from one operand to another.
     Mov { src: Operand, dst: Operand },
@@ -48,7 +52,7 @@ pub enum Instruction {
 }
 
 /// An operand is a value that can be used in an instruction.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Operand {
     /// A constant value.
     Imm(i32),
@@ -58,14 +62,14 @@ pub enum Operand {
     Stack(u32),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum UnaryOperator {
     Neg,
     Complement,
     Not,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum BinaryOperator {
     Add,
     Sub,
@@ -76,7 +80,7 @@ pub enum BinaryOperator {
     RightShift,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Register {
     AX,
     DX,
