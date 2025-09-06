@@ -5,12 +5,8 @@ use std::{
 };
 
 use mcc::{
-    Text,
-    codegen::asm,
-    diagnostics::Diagnostics,
-    lowering::tacky,
+    Ast, SourceFile, Text, codegen::asm, diagnostics::Diagnostics, lowering::tacky,
     target_lexicon::Triple,
-    types::{Ast, SourceFile},
 };
 
 #[derive(Debug, Clone)]
@@ -171,7 +167,7 @@ pub trait Callbacks {
     fn after_parse<'db>(
         &mut self,
         _db: &'db dyn mcc::Db,
-        _source_file: mcc::types::SourceFile,
+        _source_file: mcc::SourceFile,
         _ast: Ast<'db>,
         _diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Self::Output> {

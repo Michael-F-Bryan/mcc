@@ -7,8 +7,8 @@ use codespan_reporting::{
     term::{self, termcolor::ColorChoice as TermColor},
 };
 use mcc::{
-    Files, Text, codegen::asm, diagnostics::Diagnostics, lowering::tacky, target_lexicon::Triple,
-    types::Ast,
+    Ast, Files, Text, codegen::asm, diagnostics::Diagnostics, lowering::tacky,
+    target_lexicon::Triple,
 };
 use tracing_subscriber::{EnvFilter, fmt::format::FmtSpan};
 
@@ -60,7 +60,7 @@ impl Cli {
         let src = std::fs::read_to_string(&self.input)?;
         let db = mcc::Database::default();
 
-        let source_file = mcc::types::SourceFile::new(
+        let source_file = mcc::SourceFile::new(
             &db,
             Text::from(self.input.display().to_string()),
             src.into(),
@@ -162,7 +162,7 @@ impl Callbacks for DefaultCallbacks {
     fn after_parse<'db>(
         &mut self,
         _db: &'db dyn mcc::Db,
-        _source_file: mcc::types::SourceFile,
+        _source_file: mcc::SourceFile,
         _ast: Ast<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Self::Output> {

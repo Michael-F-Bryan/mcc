@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use libtest_mimic::{Failed, Trial};
-use mcc::{Text, diagnostics::Diagnostics, types::SourceFile};
+use mcc::{SourceFile, Text, diagnostics::Diagnostics};
 use mcc_driver::{Config as DriverConfig, Outcome, run as driver_run};
 use std::ops::ControlFlow;
 
@@ -256,8 +256,8 @@ impl mcc_driver::Callbacks for Callbacks {
     fn after_parse<'db>(
         &mut self,
         _db: &'db dyn mcc::Db,
-        _source_file: mcc::types::SourceFile,
-        _ast: mcc::types::Ast<'db>,
+        _source_file: mcc::SourceFile,
+        _ast: mcc::Ast<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
         self.handle_diags(&["lex", "parse"], diags)
