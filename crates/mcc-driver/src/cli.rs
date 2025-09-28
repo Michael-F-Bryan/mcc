@@ -137,6 +137,7 @@ impl DefaultCallbacks {
         let cfg = codespan_reporting::term::Config::default();
 
         for diag in diags {
+            tracing::trace!(?diag, "emitting diagnostic");
             term::emit(&mut writer, &cfg, &self.files, &diag.0)?;
         }
 
@@ -148,7 +149,7 @@ impl DefaultCallbacks {
             return ControlFlow::Break(Err(e));
         }
 
-        if diags.iter().any(|d| d.0.severity >= Severity::Error) {
+        if diags.iter().any(|d| d.severity >= Severity::Error) {
             return ControlFlow::Break(Err(anyhow::anyhow!("Compilation failed")));
         }
 
@@ -161,11 +162,13 @@ impl Callbacks for DefaultCallbacks {
 
     fn after_parse<'db>(
         &mut self,
-        _db: &'db dyn mcc::Db,
-        _source_file: mcc::SourceFile,
+        db: &'db dyn mcc::Db,
+        source_file: mcc::SourceFile,
         _ast: Ast<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Self::Output> {
+        self.files.add(db, source_file);
+
         self.handle_diags(&diags)?;
 
         if self.stop_at.parse || self.stop_at.lex {

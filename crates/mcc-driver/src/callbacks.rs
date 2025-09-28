@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
 use mcc::{
     Ast, SourceFile, Text, codegen::asm, diagnostics::Diagnostics, lowering::tacky,
     target_lexicon::Triple,
@@ -66,28 +67,35 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
         input,
     } = cfg;
 
-    let temp =
-        match tempfile::tempdir().map_err(|e| anyhow::anyhow!("failed to create temp dir: {e}")) {
-            Ok(temp) => temp,
-            Err(e) => return Outcome::Err(e),
-        };
-
-    let preprocessed = match mcc::preprocess(&db, cc.clone(), input)
-        .map_err(|e| anyhow::anyhow!("failed to preprocess: {e}"))
-    {
-        Ok(preprocessed) => preprocessed,
+    let temp = match tempfile::tempdir().with_context(|| "failed to create temp dir") {
+        Ok(temp) => temp,
         Err(e) => return Outcome::Err(e),
     };
 
+    let preprocessed =
+        match mcc::preprocess(&db, cc.clone(), input).with_context(|| "failed to preprocess") {
+            Ok(preprocessed) => preprocessed,
+            Err(e) => return Outcome::Err(e),
+        };
+
     let preprocessed_path = temp.path().join("preprocessed.c");
 
-    if let Err(e) = std::fs::write(&preprocessed_path, preprocessed) {
-        return Outcome::Err(anyhow::Error::new(e));
+    if let Err(e) = std::fs::write(&preprocessed_path, &preprocessed)
+        .with_context(|| format!("writing to \"{}\"", preprocessed_path.display()))
+    {
+        return Outcome::Err(e);
     }
+
+    let input = mcc::SourceFile::new(
+        &db,
+        preprocessed_path.display().to_string().into(),
+        preprocessed,
+    );
 
     let ast = mcc::parse(&db, input);
     let diags: Vec<&Diagnostics> = mcc::parse::accumulated::<Diagnostics>(&db, input);
     if let ControlFlow::Break(ret) = cb.after_parse(&db, input, ast, diags) {
+        tracing::debug!("early return after parse");
         return Outcome::EarlyReturn(ret);
     }
 
@@ -95,6 +103,7 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
     let diags: Vec<&Diagnostics> =
         mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, input);
     if let ControlFlow::Break(ret) = cb.after_lower(&db, tacky, diags) {
+        tracing::debug!("early return after lowering");
         return Outcome::EarlyReturn(ret);
     }
 
@@ -103,6 +112,7 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
         mcc::codegen::generate_assembly::accumulated::<Diagnostics>(&db, tacky);
 
     if let ControlFlow::Break(ret) = cb.after_codegen(&db, program, diags) {
+        tracing::debug!("early return after codegen");
         return Outcome::EarlyReturn(ret);
     }
 
@@ -114,6 +124,7 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
         mcc::render_program::accumulated::<Diagnostics>(&db, program, target.clone());
 
     if let ControlFlow::Break(ret) = cb.after_render_assembly(&db, assembly.clone(), diags) {
+        tracing::debug!("early return after render assembly");
         return Outcome::EarlyReturn(ret);
     }
 
@@ -142,6 +153,7 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
     }
 
     if let ControlFlow::Break(ret) = cb.after_compile(&db, output_path) {
+        tracing::debug!("early return after compile");
         return Outcome::EarlyReturn(ret);
     }
 

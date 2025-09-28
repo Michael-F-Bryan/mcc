@@ -12,5 +12,6 @@
         "Log": {
             "parser": "markdown"
         }
-    }
+    },
+    "python.languageServer": "None"
 }

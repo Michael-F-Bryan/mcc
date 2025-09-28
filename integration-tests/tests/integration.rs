@@ -3,7 +3,7 @@ use integration_tests::ExpectedResults;
 use libtest_mimic::Arguments;
 use std::path::Path;
 
-const MAX_CHAPTER: u32 = 3;
+const MAX_CHAPTER: u32 = 4;
 const EXPECTED_RESULTS: &str = include_str!("../writing-a-c-compiler-tests/expected_results.json");
 
 fn main() -> anyhow::Result<()> {

@@ -35,7 +35,7 @@ pub fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> tacky::Pr
             }
             other => {
                 let diagnostic = Diagnostic::bug()
-                    .with_message("Unexpected AST node")
+                    .with_message("Translation unit item not implemented")
                     .with_code(codes::type_check::UNIMPLEMENTED)
                     .with_labels(vec![
                         Label::primary(file, Span::for_node(*other.raw()))
@@ -138,7 +138,7 @@ impl<'db> FunctionContext<'db> {
             }
             other => {
                 let diagnostic = Diagnostic::bug()
-                    .with_message("Unexpected AST node")
+                    .with_message("Statement not implemented")
                     .with_code(codes::type_check::UNIMPLEMENTED)
                     .with_labels(vec![
                         Label::primary(self.file, other.span()).with_message(other.kind()),
@@ -177,7 +177,7 @@ impl<'db> FunctionContext<'db> {
                     },
                     _ => {
                         let diagnostic = Diagnostic::bug()
-                            .with_message("Unexpected AST node")
+                            .with_message("Unexpected item in parenthesized expression")
                             .with_code(codes::type_check::UNIMPLEMENTED)
                             .with_labels(vec![
                                 Label::primary(self.file, expr.span()).with_message(expr.kind()),
@@ -189,7 +189,7 @@ impl<'db> FunctionContext<'db> {
             }
             other => {
                 let diagnostic = Diagnostic::bug()
-                    .with_message("Unexpected AST node")
+                    .with_message("Expression not implemented")
                     .with_code(codes::type_check::UNIMPLEMENTED)
                     .with_labels(vec![
                         Label::primary(self.file, other.span()).with_message(other.kind()),
@@ -221,7 +221,7 @@ impl<'db> FunctionContext<'db> {
             Op::GtGt(_) => tacky::BinaryOperator::RightShift,
             other => {
                 let diagnostic = Diagnostic::bug()
-                    .with_message("Unknown binary operator")
+                    .with_message("Binary operator not implemented")
                     .with_code(codes::type_check::UNIMPLEMENTED)
                     .with_labels(vec![
                         Label::primary(self.file, binary.span()).with_message(other.kind()),

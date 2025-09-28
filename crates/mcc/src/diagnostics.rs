@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use salsa::Accumulator;
 
 use crate::types::SourceFile;
@@ -24,6 +26,14 @@ pub struct Diagnostics(pub Diagnostic);
 impl From<Diagnostic> for Diagnostics {
     fn from(diagnostic: Diagnostic) -> Self {
         Diagnostics(diagnostic)
+    }
+}
+
+impl Deref for Diagnostics {
+    type Target = Diagnostic;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
