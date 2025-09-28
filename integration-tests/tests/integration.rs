@@ -1,7 +1,7 @@
 use anyhow::Context;
+use integration_tests::ExpectedResults;
 use libtest_mimic::Arguments;
 use std::path::Path;
-use tests::ExpectedResults;
 
 const MAX_CHAPTER: u32 = 3;
 const EXPECTED_RESULTS: &str = include_str!("../writing-a-c-compiler-tests/expected_results.json");
@@ -22,8 +22,8 @@ fn main() -> anyhow::Result<()> {
     let mut trials = Vec::new();
     let expected_results: ExpectedResults = serde_json::from_str(EXPECTED_RESULTS)?;
 
-    for test in
-        tests::discover(&test_root, &expected_results).context("failed to discover tests")?
+    for test in integration_tests::discover(&test_root, &expected_results)
+        .context("failed to discover tests")?
     {
         let ignored = test.chapter > MAX_CHAPTER || ignored.contains(&test.name.as_str());
         let trial = test.trial().with_ignored_flag(ignored);

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "tests"]
+members = ["crates/*", "integration-tests"]
 resolver = "2"
 
 [workspace.package]
@@ -18,6 +18,7 @@ clap = { version = "4.5.41", features = ["derive", "env"] }
 codespan-reporting = "0.12.0"
 salsa = "0.23.0"
 serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.143"
 thiserror = "2.0.12"
 tracing = { version = "0.1.41", features = ["attributes"] }
 tree-sitter = "0.25.8"
