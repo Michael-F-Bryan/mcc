@@ -34,6 +34,12 @@ pub enum Instruction {
         right_src: Val,
         dst: Val,
     },
+    Comparison {
+        op: ComparisonOperator,
+        left_src: Val,
+        right_src: Val,
+        dst: Val,
+    },
     Copy {
         src: Val,
         dst: Val,
@@ -70,6 +76,10 @@ pub enum BinaryOperator {
     Or,
     LeftShift,
     RightShift,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum ComparisonOperator {
     Equal,
     NotEqual,
     LessThan,

@@ -90,10 +90,25 @@ impl<W: Write> AssemblyRenderer<W> {
                 writeln!(self.writer)?;
             }
             asm::Instruction::Unary { op, operand } => {
-                self.unary_operator(op)?;
-                write!(self.writer, " ")?;
-                self.operand(operand)?;
-                writeln!(self.writer)?;
+                match op {
+                    asm::UnaryOperator::Not => {
+                        // Logical NOT: compare with 0 and set result to 1 if zero, 0 if non-zero
+                        write!(self.writer, "cmpl $0, ")?;
+                        self.operand(operand)?;
+                        writeln!(self.writer)?;
+                        write!(self.writer, "sete %al")?;
+                        writeln!(self.writer)?;
+                        write!(self.writer, "movb %al, ")?;
+                        self.operand(operand)?;
+                        writeln!(self.writer)?;
+                    }
+                    _ => {
+                        self.unary_operator(op)?;
+                        write!(self.writer, " ")?;
+                        self.operand(operand)?;
+                        writeln!(self.writer)?;
+                    }
+                }
             }
             asm::Instruction::Ret => {
                 writeln!(self.writer, "movq %rbp, %rsp")?;
@@ -105,6 +120,52 @@ impl<W: Write> AssemblyRenderer<W> {
                 write!(self.writer, " ")?;
                 self.operand(src)?;
                 write!(self.writer, ", ")?;
+                self.operand(dst)?;
+                writeln!(self.writer)?;
+            }
+            asm::Instruction::Comparison {
+                op,
+                left,
+                right,
+                dst,
+            } => {
+                // For comparisons, we need to use cmpl + setcc
+                // Handle memory-to-memory comparisons by loading left into register first
+                let (left_reg, right_reg) = match (left, right) {
+                    (asm::Operand::Stack(_), asm::Operand::Stack(_)) => {
+                        // Both are memory locations, load left into register
+                        write!(self.writer, "movl ")?;
+                        self.operand(left)?;
+                        write!(self.writer, ", %eax")?;
+                        writeln!(self.writer)?;
+                        (asm::Operand::Register(asm::Register::AX), right)
+                    }
+                    (left, right) => (left, right),
+                };
+
+                write!(self.writer, "cmpl ")?;
+                self.operand(right_reg)?;
+                write!(self.writer, ", ")?;
+                self.operand(left_reg)?;
+                writeln!(self.writer)?;
+
+                // Set the result based on the comparison
+                write!(self.writer, "set")?;
+                match op {
+                    asm::ComparisonOperator::Equal => write!(self.writer, "e")?,
+                    asm::ComparisonOperator::NotEqual => write!(self.writer, "ne")?,
+                    asm::ComparisonOperator::LessThan => write!(self.writer, "l")?,
+                    asm::ComparisonOperator::LessThanOrEqual => write!(self.writer, "le")?,
+                    asm::ComparisonOperator::GreaterThan => write!(self.writer, "g")?,
+                    asm::ComparisonOperator::GreaterThanOrEqual => write!(self.writer, "ge")?,
+                }
+                write!(self.writer, " %al")?;
+                writeln!(self.writer)?;
+
+                // Move the result from AL to the destination (as 32-bit)
+                write!(self.writer, "movzbl %al, %eax")?;
+                writeln!(self.writer)?;
+                write!(self.writer, "movl %eax, ")?;
                 self.operand(dst)?;
                 writeln!(self.writer)?;
             }
@@ -122,10 +183,64 @@ impl<W: Write> AssemblyRenderer<W> {
             asm::Instruction::Jump { target } => {
                 writeln!(self.writer, "jmp {target}")?;
             }
-            asm::Instruction::JumpIfZero { .. } => {
-                todo!()
+            asm::Instruction::JumpIfZero { condition, target } => {
+                match condition {
+                    asm::Operand::Imm(imm) => {
+                        // For immediate values, we need to load into a register first
+                        write!(self.writer, "movl ${imm}, %eax")?;
+                        writeln!(self.writer)?;
+                        write!(self.writer, "testl %eax, %eax")?;
+                        writeln!(self.writer)?;
+                    }
+                    asm::Operand::Stack(_) => {
+                        // Load stack value into register first to avoid memory-to-memory operations
+                        write!(self.writer, "movl ")?;
+                        self.operand(condition)?;
+                        write!(self.writer, ", %eax")?;
+                        writeln!(self.writer)?;
+                        write!(self.writer, "testl %eax, %eax")?;
+                        writeln!(self.writer)?;
+                    }
+                    _ => {
+                        write!(self.writer, "testl ")?;
+                        self.operand(condition)?;
+                        write!(self.writer, ", ")?;
+                        self.operand(condition)?;
+                        writeln!(self.writer)?;
+                    }
+                }
+                write!(self.writer, "jz {target}")?;
+                writeln!(self.writer)?;
             }
-            asm::Instruction::JumpIfNotZero { .. } => todo!(),
+            asm::Instruction::JumpIfNotZero { condition, target } => {
+                match condition {
+                    asm::Operand::Imm(imm) => {
+                        // For immediate values, we need to load into a register first
+                        write!(self.writer, "movl ${imm}, %eax")?;
+                        writeln!(self.writer)?;
+                        write!(self.writer, "testl %eax, %eax")?;
+                        writeln!(self.writer)?;
+                    }
+                    asm::Operand::Stack(_) => {
+                        // Load stack value into register first to avoid memory-to-memory operations
+                        write!(self.writer, "movl ")?;
+                        self.operand(condition)?;
+                        write!(self.writer, ", %eax")?;
+                        writeln!(self.writer)?;
+                        write!(self.writer, "testl %eax, %eax")?;
+                        writeln!(self.writer)?;
+                    }
+                    _ => {
+                        write!(self.writer, "testl ")?;
+                        self.operand(condition)?;
+                        write!(self.writer, ", ")?;
+                        self.operand(condition)?;
+                        writeln!(self.writer)?;
+                    }
+                }
+                write!(self.writer, "jnz {target}")?;
+                writeln!(self.writer)?;
+            }
         }
 
         Ok(())
@@ -150,7 +265,12 @@ impl<W: Write> AssemblyRenderer<W> {
     fn unary_operator(&mut self, op: asm::UnaryOperator) -> fmt::Result {
         match op {
             asm::UnaryOperator::Neg => write!(self.writer, "negl"),
-            asm::UnaryOperator::Complement | asm::UnaryOperator::Not => write!(self.writer, "notl"),
+            asm::UnaryOperator::Complement => write!(self.writer, "notl"),
+            asm::UnaryOperator::Not => {
+                // Logical NOT: compare with 0 and set result to 1 if zero, 0 if non-zero
+                write!(self.writer, "cmpl $0, ")?;
+                Ok(())
+            }
         }
     }
 

@@ -6,6 +6,7 @@ use std::{
 use anyhow::Context;
 
 #[test]
+#[cfg_attr(target_arch = "aarch64", ignore)]
 fn run_test_compiler() {
     let compiler_driver = PathBuf::from(env!("CARGO_BIN_EXE_test_driver"));
     let test_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("writing-a-c-compiler-tests");

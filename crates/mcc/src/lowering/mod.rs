@@ -204,42 +204,79 @@ impl<'db> FunctionContext<'db> {
         let left = binary.left().ok()?.as_expression()?;
         let right = binary.right().ok()?.as_expression()?;
 
-        let left = self.lower_expression(left)?;
-        let right = self.lower_expression(right)?;
-
         type Op<'a> = ast::anon_unions::NotEq_Mod_And_AndAnd_Mul_Add_Sub_Div_Lt_LtLt_LtEq_EqEq_Gt_GtEq_GtGt_BitXor_Or_OrOr<'a>;
 
-        let op = match binary.operator().ok()? {
-            Op::Add(_) => tacky::BinaryOperator::Add,
-            Op::Sub(_) => tacky::BinaryOperator::Sub,
-            Op::Mul(_) => tacky::BinaryOperator::Mul,
-            Op::Div(_) => tacky::BinaryOperator::Div,
-            Op::Mod(_) => tacky::BinaryOperator::Mod,
-            Op::And(_) => tacky::BinaryOperator::And,
-            Op::Or(_) => tacky::BinaryOperator::Or,
-            Op::LtLt(_) => tacky::BinaryOperator::LeftShift,
-            Op::GtGt(_) => tacky::BinaryOperator::RightShift,
-            other => {
-                let diagnostic = Diagnostic::bug()
-                    .with_message("Binary operator not implemented")
-                    .with_code(codes::type_check::UNIMPLEMENTED)
-                    .with_labels(vec![
-                        Label::primary(self.file, binary.span()).with_message(other.kind()),
-                    ]);
-                diagnostic.accumulate(self.db);
-                return None;
+        match binary.operator().ok()? {
+            // Logical AND with short-circuit evaluation
+            Op::AndAnd(_) => self.lower_logical_and(left, right),
+            // Logical OR with short-circuit evaluation
+            Op::OrOr(_) => self.lower_logical_or(left, right),
+            // Regular binary operators
+            op => {
+                let left = self.lower_expression(left)?;
+                let right = self.lower_expression(right)?;
+
+                match op {
+                    Op::Add(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::Add)
+                    }
+                    Op::Sub(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::Sub)
+                    }
+                    Op::Mul(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::Mul)
+                    }
+                    Op::Div(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::Div)
+                    }
+                    Op::Mod(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::Mod)
+                    }
+                    Op::And(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::And)
+                    }
+                    Op::Or(_) => self.lower_binary_operator(left, right, tacky::BinaryOperator::Or),
+                    Op::LtLt(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::LeftShift)
+                    }
+                    Op::GtGt(_) => {
+                        self.lower_binary_operator(left, right, tacky::BinaryOperator::RightShift)
+                    }
+                    Op::EqEq(_) => {
+                        self.lower_comparison(left, right, tacky::ComparisonOperator::Equal)
+                    }
+                    Op::NotEq(_) => {
+                        self.lower_comparison(left, right, tacky::ComparisonOperator::NotEqual)
+                    }
+                    Op::Lt(_) => {
+                        self.lower_comparison(left, right, tacky::ComparisonOperator::LessThan)
+                    }
+                    Op::LtEq(_) => self.lower_comparison(
+                        left,
+                        right,
+                        tacky::ComparisonOperator::LessThanOrEqual,
+                    ),
+                    Op::Gt(_) => {
+                        self.lower_comparison(left, right, tacky::ComparisonOperator::GreaterThan)
+                    }
+                    Op::GtEq(_) => self.lower_comparison(
+                        left,
+                        right,
+                        tacky::ComparisonOperator::GreaterThanOrEqual,
+                    ),
+                    other => {
+                        let diagnostic = Diagnostic::bug()
+                            .with_message("Binary operator not implemented")
+                            .with_code(codes::type_check::UNIMPLEMENTED)
+                            .with_labels(vec![
+                                Label::primary(self.file, binary.span()).with_message(other.kind()),
+                            ]);
+                        diagnostic.accumulate(self.db);
+                        None
+                    }
+                }
             }
-        };
-
-        let dst = tacky::Val::Var(self.temporary());
-        self.instructions.push(tacky::Instruction::Binary {
-            op,
-            left_src: left,
-            right_src: right,
-            dst: dst.clone(),
-        });
-
-        Some(dst)
+        }
     }
 
     fn lower_number_literal(&self, literal: ast::NumberLiteral<'_>) -> Option<tacky::Val> {
@@ -262,9 +299,7 @@ impl<'db> FunctionContext<'db> {
             }
             ast::anon_unions::Not_Add_Sub_BitNot::Sub(_) => tacky::UnaryOperator::Negate,
             ast::anon_unions::Not_Add_Sub_BitNot::BitNot(_) => tacky::UnaryOperator::Complement,
-            ast::anon_unions::Not_Add_Sub_BitNot::Not(_) => {
-                todo!()
-            }
+            ast::anon_unions::Not_Add_Sub_BitNot::Not(_) => tacky::UnaryOperator::Not,
         };
 
         self.instructions.push(tacky::Instruction::Unary {
@@ -275,9 +310,172 @@ impl<'db> FunctionContext<'db> {
         Some(dst)
     }
 
+    /// Lower logical AND (&&) with short-circuit evaluation.
+    ///
+    /// For `left && right`:
+    /// 1. Evaluate left
+    /// 2. If left is zero, jump to false case and set result to 0
+    /// 3. Otherwise, evaluate right and set result to 1 if right is truthy, 0 if falsy
+    fn lower_logical_and(
+        &mut self,
+        left: ast::Expression<'_>,
+        right: ast::Expression<'_>,
+    ) -> Option<tacky::Val> {
+        let left_val = self.lower_expression(left)?;
+
+        // Create labels for control flow
+        let false_label = self.label();
+        let end_label = self.label();
+
+        // Create result variable
+        let result = tacky::Val::Var(self.temporary());
+
+        // If left is zero, jump to false case
+        self.instructions.push(tacky::Instruction::JumpIfZero {
+            condition: left_val,
+            target: false_label.clone(),
+        });
+
+        // Left is non-zero, evaluate right and convert to boolean (1 or 0)
+        let right_val = self.lower_expression(right)?;
+        let right_bool = tacky::Val::Var(self.temporary());
+
+        // Convert right to boolean: cmpl $0, right; setne %al; movb %al, right_bool
+        self.instructions.push(tacky::Instruction::Comparison {
+            op: tacky::ComparisonOperator::NotEqual,
+            left_src: tacky::Val::Constant(0),
+            right_src: right_val,
+            dst: right_bool.clone(),
+        });
+
+        self.instructions.push(tacky::Instruction::Copy {
+            src: right_bool,
+            dst: result.clone(),
+        });
+
+        // Jump to end
+        self.instructions.push(tacky::Instruction::Jump {
+            target: end_label.clone(),
+        });
+
+        // False case: set result to 0
+        self.instructions
+            .push(tacky::Instruction::Label(false_label));
+        self.instructions.push(tacky::Instruction::Copy {
+            src: tacky::Val::Constant(0),
+            dst: result.clone(),
+        });
+
+        // End case
+        self.instructions.push(tacky::Instruction::Label(end_label));
+
+        Some(result)
+    }
+
+    /// Lower logical OR (||) with short-circuit evaluation.
+    ///
+    /// For `left || right`:
+    /// 1. Evaluate left
+    /// 2. If left is non-zero, jump to true case and set result to 1
+    /// 3. Otherwise, evaluate right and set result to 1 if right is truthy, 0 if falsy
+    fn lower_logical_or(
+        &mut self,
+        left: ast::Expression<'_>,
+        right: ast::Expression<'_>,
+    ) -> Option<tacky::Val> {
+        let left_val = self.lower_expression(left)?;
+
+        // Create labels for control flow
+        let true_label = self.label();
+        let end_label = self.label();
+
+        // Create result variable
+        let result = tacky::Val::Var(self.temporary());
+
+        // If left is non-zero, jump to true case
+        self.instructions.push(tacky::Instruction::JumpIfNotZero {
+            condition: left_val.clone(),
+            target: true_label.clone(),
+        });
+
+        // Left is zero, evaluate right and convert to boolean (1 or 0)
+        let right_val = self.lower_expression(right)?;
+        let right_bool = tacky::Val::Var(self.temporary());
+
+        // Convert right to boolean: cmpl $0, right; setne %al; movb %al, right_bool
+        self.instructions.push(tacky::Instruction::Comparison {
+            op: tacky::ComparisonOperator::NotEqual,
+            left_src: tacky::Val::Constant(0),
+            right_src: right_val,
+            dst: right_bool.clone(),
+        });
+
+        self.instructions.push(tacky::Instruction::Copy {
+            src: right_bool,
+            dst: result.clone(),
+        });
+
+        // Jump to end
+        self.instructions.push(tacky::Instruction::Jump {
+            target: end_label.clone(),
+        });
+
+        // True case: set result to 1
+        self.instructions
+            .push(tacky::Instruction::Label(true_label));
+        self.instructions.push(tacky::Instruction::Copy {
+            src: tacky::Val::Constant(1),
+            dst: result.clone(),
+        });
+
+        // End case
+        self.instructions.push(tacky::Instruction::Label(end_label));
+
+        Some(result)
+    }
+
     fn temporary(&mut self) -> tacky::Variable {
         let temp = tacky::Variable::Anonymous(self.next_anonymous);
         self.next_anonymous += 1;
         temp
+    }
+
+    fn label(&mut self) -> crate::Text {
+        let label_name = format!("L{}", self.next_anonymous);
+        self.next_anonymous += 1;
+        label_name.into()
+    }
+
+    fn lower_binary_operator(
+        &mut self,
+        left: tacky::Val,
+        right: tacky::Val,
+        binary_op: tacky::BinaryOperator,
+    ) -> Option<tacky::Val> {
+        let dst = tacky::Val::Var(self.temporary());
+        self.instructions.push(tacky::Instruction::Binary {
+            op: binary_op,
+            left_src: left,
+            right_src: right,
+            dst: dst.clone(),
+        });
+
+        Some(dst)
+    }
+    fn lower_comparison(
+        &mut self,
+        left: tacky::Val,
+        right: tacky::Val,
+        comparison_op: tacky::ComparisonOperator,
+    ) -> Option<tacky::Val> {
+        let dst = tacky::Val::Var(self.temporary());
+        self.instructions.push(tacky::Instruction::Comparison {
+            op: comparison_op,
+            left_src: left,
+            right_src: right,
+            dst: dst.clone(),
+        });
+
+        Some(dst)
     }
 }

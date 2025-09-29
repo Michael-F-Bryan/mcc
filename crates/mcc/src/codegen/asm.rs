@@ -49,6 +49,13 @@ pub enum Instruction {
     JumpIfZero { condition: Operand, target: Text },
     /// Jump to a label if the condition is not zero.
     JumpIfNotZero { condition: Operand, target: Text },
+    /// Compare two operands and set flags.
+    Comparison {
+        op: ComparisonOperator,
+        left: Operand,
+        right: Operand,
+        dst: Operand,
+    },
 }
 
 /// An operand is a value that can be used in an instruction.
@@ -78,6 +85,16 @@ pub enum BinaryOperator {
     Or,
     LeftShift,
     RightShift,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum ComparisonOperator {
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

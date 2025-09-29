@@ -88,7 +88,6 @@ fn to_assembly<'db>(
                     }
                     tacky::BinaryOperator::Div => BinOpKind::Div,
                     tacky::BinaryOperator::Mod => BinOpKind::Mod,
-                    _ => todo!(),
                 };
 
                 match op {
@@ -133,6 +132,36 @@ fn to_assembly<'db>(
                     }
                 }
             }
+            tacky::Instruction::Comparison {
+                op,
+                left_src,
+                right_src,
+                dst,
+            } => {
+                let left_src = stack_locations.operand_for(left_src);
+                let right_src = stack_locations.operand_for(right_src);
+                let dst = stack_locations.operand_for(dst);
+
+                let comparison_op = match op {
+                    tacky::ComparisonOperator::Equal => asm::ComparisonOperator::Equal,
+                    tacky::ComparisonOperator::NotEqual => asm::ComparisonOperator::NotEqual,
+                    tacky::ComparisonOperator::LessThan => asm::ComparisonOperator::LessThan,
+                    tacky::ComparisonOperator::LessThanOrEqual => {
+                        asm::ComparisonOperator::LessThanOrEqual
+                    }
+                    tacky::ComparisonOperator::GreaterThan => asm::ComparisonOperator::GreaterThan,
+                    tacky::ComparisonOperator::GreaterThanOrEqual => {
+                        asm::ComparisonOperator::GreaterThanOrEqual
+                    }
+                };
+
+                instructions.push(asm::Instruction::Comparison {
+                    op: comparison_op,
+                    left: left_src,
+                    right: right_src,
+                    dst,
+                });
+            }
             tacky::Instruction::Copy { src, dst } => {
                 let src = stack_locations.operand_for(src);
                 let dst = stack_locations.operand_for(dst);
@@ -151,7 +180,7 @@ fn to_assembly<'db>(
             }
             tacky::Instruction::JumpIfNotZero { condition, target } => {
                 let condition = stack_locations.operand_for(condition);
-                instructions.push(asm::Instruction::JumpIfZero { condition, target });
+                instructions.push(asm::Instruction::JumpIfNotZero { condition, target });
             }
         }
     }
@@ -250,6 +279,63 @@ fn fix_up_instructions<'db>(
                 });
                 instructions.push(asm::Instruction::Idiv {
                     src: asm::Operand::Register(asm::Register::R10),
+                });
+            }
+            asm::Instruction::Comparison {
+                op,
+                left: left @ asm::Operand::Imm(_),
+                right: right @ asm::Operand::Imm(_),
+                dst,
+            } => {
+                // `cmpl` does not accept two immediates, so we need to move one
+                // to a register first.
+                instructions.push(asm::Instruction::Mov {
+                    src: left,
+                    dst: asm::Operand::Register(asm::Register::R10),
+                });
+                instructions.push(asm::Instruction::Comparison {
+                    op,
+                    left: asm::Operand::Register(asm::Register::R10),
+                    right,
+                    dst,
+                });
+            }
+            asm::Instruction::Comparison {
+                op,
+                left: left @ asm::Operand::Stack(_),
+                right: right @ asm::Operand::Imm(_),
+                dst,
+            } => {
+                // `cmpl` does not accept memory as destination with immediate source,
+                // so we need to move the memory operand to a register first.
+                instructions.push(asm::Instruction::Mov {
+                    src: left,
+                    dst: asm::Operand::Register(asm::Register::R10),
+                });
+                instructions.push(asm::Instruction::Comparison {
+                    op,
+                    left: asm::Operand::Register(asm::Register::R10),
+                    right,
+                    dst,
+                });
+            }
+            asm::Instruction::Comparison {
+                op,
+                left: left @ asm::Operand::Imm(_),
+                right: right @ asm::Operand::Stack(_),
+                dst,
+            } => {
+                // `cmpl` does not accept memory as destination with immediate source,
+                // so we need to move the memory operand to a register first.
+                instructions.push(asm::Instruction::Mov {
+                    src: right,
+                    dst: asm::Operand::Register(asm::Register::R10),
+                });
+                instructions.push(asm::Instruction::Comparison {
+                    op,
+                    left: asm::Operand::Register(asm::Register::R10),
+                    right: left,
+                    dst,
                 });
             }
             other => instructions.push(other),

@@ -13,5 +13,16 @@
             "parser": "markdown"
         }
     },
-    "python.languageServer": "None"
+    "python.languageServer": "None",
+    "files.associations": {
+        "*.log": "jsonc",
+        "*.lalrpop": "rust",
+        "*.tera": "django-html",
+        "*.json": "jsonc",
+        "*.html": "html",
+        "*.lock": "plaintext",
+        "*.mdx": "markdown",
+        "*.ungrammar": "ungrammar",
+        "stdio.h": "c"
+    }
 }

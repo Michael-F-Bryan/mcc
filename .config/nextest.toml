@@ -1,0 +1,6 @@
+[profile.default]
+slow-timeout = { period = "10s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+filter = 'test(writing_a_c_compiler)'
+slow-timeout = { period = "120s", terminate-after = 5 }
