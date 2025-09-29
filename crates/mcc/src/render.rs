@@ -89,26 +89,37 @@ impl<W: Write> AssemblyRenderer<W> {
                 self.operand(dst)?;
                 writeln!(self.writer)?;
             }
-            asm::Instruction::Unary { op, operand } => {
-                match op {
-                    asm::UnaryOperator::Not => {
-                        // Logical NOT: compare with 0 and set result to 1 if zero, 0 if non-zero
-                        write!(self.writer, "cmpl $0, ")?;
-                        self.operand(operand)?;
-                        writeln!(self.writer)?;
-                        write!(self.writer, "sete %al")?;
-                        writeln!(self.writer)?;
-                        write!(self.writer, "movb %al, ")?;
-                        self.operand(operand)?;
-                        writeln!(self.writer)?;
-                    }
-                    _ => {
-                        self.unary_operator(op)?;
-                        write!(self.writer, " ")?;
-                        self.operand(operand)?;
-                        writeln!(self.writer)?;
-                    }
-                }
+            asm::Instruction::Unary {
+                op: asm::UnaryOperator::Not,
+                operand,
+            } => {
+                // Logical NOT: compare with 0 and set result to 1 if zero, 0 if non-zero
+                write!(self.writer, "cmpl $0, ")?;
+                self.operand(operand)?;
+                writeln!(self.writer)?;
+                write!(self.writer, "sete %al")?;
+                writeln!(self.writer)?;
+                write!(self.writer, "movb %al, ")?;
+                self.operand(operand)?;
+                writeln!(self.writer)?;
+            }
+            asm::Instruction::Unary {
+                op: asm::UnaryOperator::Neg,
+                operand,
+            } => {
+                write!(self.writer, "negl")?;
+                write!(self.writer, " ")?;
+                self.operand(operand)?;
+                writeln!(self.writer)?;
+            }
+            asm::Instruction::Unary {
+                op: asm::UnaryOperator::Complement,
+                operand,
+            } => {
+                write!(self.writer, "notl")?;
+                write!(self.writer, " ")?;
+                self.operand(operand)?;
+                writeln!(self.writer)?;
             }
             asm::Instruction::Ret => {
                 writeln!(self.writer, "movq %rbp, %rsp")?;
@@ -259,18 +270,6 @@ impl<W: Write> AssemblyRenderer<W> {
             asm::Register::AX => write!(self.writer, "%eax"),
             asm::Register::DX => write!(self.writer, "%edx"),
             asm::Register::R10 => write!(self.writer, "%r10d"),
-        }
-    }
-
-    fn unary_operator(&mut self, op: asm::UnaryOperator) -> fmt::Result {
-        match op {
-            asm::UnaryOperator::Neg => write!(self.writer, "negl"),
-            asm::UnaryOperator::Complement => write!(self.writer, "notl"),
-            asm::UnaryOperator::Not => {
-                // Logical NOT: compare with 0 and set result to 1 if zero, 0 if non-zero
-                write!(self.writer, "cmpl $0, ")?;
-                Ok(())
-            }
         }
     }
 

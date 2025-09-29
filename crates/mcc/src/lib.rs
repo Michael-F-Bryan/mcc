@@ -76,6 +76,7 @@ pub extern crate target_lexicon;
 mod assembling;
 mod cmd;
 pub mod codegen;
+pub mod codes;
 mod debug;
 pub mod diagnostics;
 mod files;

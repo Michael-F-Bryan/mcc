@@ -1,0 +1,11 @@
+parse:
+  unexpected_token:
+    severity: Error
+    description: The parser encountered an unexpected token.
+  missing_token:
+    severity: Error
+    description: The parser expected a token but found none.
+type_check:
+  unimplemented:
+    severity: Bug
+    description: This part of the type checker isn't implemented.

@@ -86,22 +86,22 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
         return Outcome::Err(e);
     }
 
-    let input = mcc::SourceFile::new(
+    let preprocessed_file = mcc::SourceFile::new(
         &db,
         preprocessed_path.display().to_string().into(),
         preprocessed,
     );
 
-    let ast = mcc::parse(&db, input);
-    let diags: Vec<&Diagnostics> = mcc::parse::accumulated::<Diagnostics>(&db, input);
-    if let ControlFlow::Break(ret) = cb.after_parse(&db, input, ast, diags) {
+    let ast = mcc::parse(&db, preprocessed_file);
+    let diags: Vec<&Diagnostics> = mcc::parse::accumulated::<Diagnostics>(&db, preprocessed_file);
+    if let ControlFlow::Break(ret) = cb.after_parse(&db, preprocessed_file, ast, diags) {
         tracing::debug!("early return after parse");
         return Outcome::EarlyReturn(ret);
     }
 
-    let tacky = mcc::lowering::lower(&db, ast, input);
+    let tacky = mcc::lowering::lower(&db, ast, preprocessed_file);
     let diags: Vec<&Diagnostics> =
-        mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, input);
+        mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, preprocessed_file);
     if let ControlFlow::Break(ret) = cb.after_lower(&db, tacky, diags) {
         tracing::debug!("early return after lowering");
         return Outcome::EarlyReturn(ret);

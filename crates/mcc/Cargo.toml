@@ -14,6 +14,7 @@ version.workspace = true
 codespan-reporting = { workspace = true }
 mcc-macros = { version = "0.0.0", path = "../mcc-macros" }
 mcc-syntax = { version = "0.0.0", path = "../mcc-syntax" }
+paste = "1.0.15"
 salsa = { workspace = true }
 serde = { workspace = true }
 target-lexicon = "0.13.2"
@@ -26,4 +27,5 @@ type-sitter = { workspace = true }
 [dev-dependencies]
 insta = { version = "1.43.1", features = ["json"] }
 serde_json = "1.0.143"
+serde_yaml = "0.9.34"
 tree-sitter-query = { git = "https://github.com/tree-sitter-grammars/tree-sitter-query" }

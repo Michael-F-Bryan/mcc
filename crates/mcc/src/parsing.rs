@@ -3,8 +3,8 @@ use mcc_syntax::Span;
 use tree_sitter::{Language, Node, StreamingIterator};
 
 use crate::{
-    Db,
-    diagnostics::{Diagnostic, DiagnosticExt, codes},
+    Db, codes,
+    diagnostics::{Diagnostic, DiagnosticExt},
     types::{Ast, SourceFile, Tree},
 };
 
@@ -44,7 +44,7 @@ fn ensure_return_type(db: &dyn Db, lang: &Language, tree: &Tree, file: SourceFil
     while let Some(m) = captures.next() {
         let diagnostic = codespan_reporting::diagnostic::Diagnostic::error()
             .with_message("Expected a return type for function")
-            .with_code(codes::parse::MISSING_TOKEN)
+            .with_code(codes::parse::missing_token)
             .with_labels(vec![
                 Label::primary(file, Span::for_node(m.captures[0].node))
                     .with_message("error occurred here"),
@@ -84,7 +84,7 @@ fn check_node(db: &dyn Db, node: Node<'_>, file: SourceFile) -> Continuation {
                 "Expected a \"{}\"",
                 node.parent().unwrap().grammar_name()
             ))
-            .with_code(codes::parse::UNEXPECTED_TOKEN)
+            .with_code(codes::parse::unexpected_token)
             .with_labels(vec![
                 Label::primary(file, Span::for_node(node)).with_message("error occurred here"),
             ]);
@@ -146,7 +146,7 @@ mod tests {
             diags,
             &[&Diagnostics::from(
                 codespan_reporting::diagnostic::Diagnostic::error()
-                    .with_code(codes::parse::MISSING_TOKEN)
+                    .with_code(codes::parse::missing_token)
                     .with_message("Expected a return type for function")
                     .with_labels(vec![
                         Label::primary(file, Span::new(232, 52))

@@ -5,8 +5,8 @@ use mcc_syntax::{Span, ast};
 use type_sitter::{HasChild, HasChildren, HasOptionalChild, Node, TreeCursor};
 
 use crate::{
-    Db,
-    diagnostics::{Diagnostic, DiagnosticExt, codes},
+    Db, codes,
+    diagnostics::{Diagnostic, DiagnosticExt},
     types::{Ast, SourceFile},
 };
 
@@ -36,7 +36,7 @@ pub fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> tacky::Pr
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Translation unit item not implemented")
-                    .with_code(codes::type_check::UNIMPLEMENTED)
+                    .with_code(codes::type_check::unimplemented)
                     .with_labels(vec![
                         Label::primary(file, Span::for_node(*other.raw()))
                             .with_message(other.kind()),
@@ -139,7 +139,7 @@ impl<'db> FunctionContext<'db> {
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Statement not implemented")
-                    .with_code(codes::type_check::UNIMPLEMENTED)
+                    .with_code(codes::type_check::unimplemented)
                     .with_labels(vec![
                         Label::primary(self.file, other.span()).with_message(other.kind()),
                     ]);
@@ -178,7 +178,7 @@ impl<'db> FunctionContext<'db> {
                     _ => {
                         let diagnostic = Diagnostic::bug()
                             .with_message("Unexpected item in parenthesized expression")
-                            .with_code(codes::type_check::UNIMPLEMENTED)
+                            .with_code(codes::type_check::unimplemented)
                             .with_labels(vec![
                                 Label::primary(self.file, expr.span()).with_message(expr.kind()),
                             ]);
@@ -190,7 +190,7 @@ impl<'db> FunctionContext<'db> {
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Expression not implemented")
-                    .with_code(codes::type_check::UNIMPLEMENTED)
+                    .with_code(codes::type_check::unimplemented)
                     .with_labels(vec![
                         Label::primary(self.file, other.span()).with_message(other.kind()),
                     ]);
@@ -267,7 +267,7 @@ impl<'db> FunctionContext<'db> {
                     other => {
                         let diagnostic = Diagnostic::bug()
                             .with_message("Binary operator not implemented")
-                            .with_code(codes::type_check::UNIMPLEMENTED)
+                            .with_code(codes::type_check::unimplemented)
                             .with_labels(vec![
                                 Label::primary(self.file, binary.span()).with_message(other.kind()),
                             ]);
