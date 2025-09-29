@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["thin_vec"],"struct":["Drain","IntoIter","Splice","ThinVec"]};

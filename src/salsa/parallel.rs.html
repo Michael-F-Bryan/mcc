@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/salsa-0.23.0/src/parallel.rs`."><title>parallel.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">salsa/</div>parallel.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>rayon::iter::{FromParallelIterator, IntoParallelIterator, ParallelIterator};
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">crate</span>::Database;
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">pub fn </span>par_map&lt;Db, F, T, R, C&gt;(db: <span class="kw-2">&amp;</span>Db, inputs: <span class="kw">impl </span>IntoParallelIterator&lt;Item = T&gt;, op: F) -&gt; C
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">where
+<a href=#7 id=7 data-nosnippet>7</a>    </span>Db: Database + <span class="question-mark">?</span>Sized,
+<a href=#8 id=8 data-nosnippet>8</a>    F: Fn(<span class="kw-2">&amp;</span>Db, T) -&gt; R + Sync + Send,
+<a href=#9 id=9 data-nosnippet>9</a>    T: Send,
+<a href=#10 id=10 data-nosnippet>10</a>    R: Send + Sync,
+<a href=#11 id=11 data-nosnippet>11</a>    C: FromParallelIterator&lt;R&gt;,
+<a href=#12 id=12 data-nosnippet>12</a>{
+<a href=#13 id=13 data-nosnippet>13</a>    inputs
+<a href=#14 id=14 data-nosnippet>14</a>        .into_par_iter()
+<a href=#15 id=15 data-nosnippet>15</a>        .map_with(DbForkOnClone(db.fork_db()), |db, element| {
+<a href=#16 id=16 data-nosnippet>16</a>            op(db.<span class="number">0</span>.as_view(), element)
+<a href=#17 id=17 data-nosnippet>17</a>        })
+<a href=#18 id=18 data-nosnippet>18</a>        .collect()
+<a href=#19 id=19 data-nosnippet>19</a>}
+<a href=#20 id=20 data-nosnippet>20</a>
+<a href=#21 id=21 data-nosnippet>21</a><span class="kw">struct </span>DbForkOnClone(Box&lt;<span class="kw">dyn </span>Database&gt;);
+<a href=#22 id=22 data-nosnippet>22</a>
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">impl </span>Clone <span class="kw">for </span>DbForkOnClone {
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<a href=#25 id=25 data-nosnippet>25</a>        DbForkOnClone(<span class="self">self</span>.<span class="number">0</span>.fork_db())
+<a href=#26 id=26 data-nosnippet>26</a>    }
+<a href=#27 id=27 data-nosnippet>27</a>}
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a><span class="kw">pub fn </span>join&lt;A, B, RA, RB, Db: Database + <span class="question-mark">?</span>Sized&gt;(db: <span class="kw-2">&amp;</span>Db, a: A, b: B) -&gt; (RA, RB)
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">where
+<a href=#31 id=31 data-nosnippet>31</a>    </span>A: FnOnce(<span class="kw-2">&amp;</span>Db) -&gt; RA + Send,
+<a href=#32 id=32 data-nosnippet>32</a>    B: FnOnce(<span class="kw-2">&amp;</span>Db) -&gt; RB + Send,
+<a href=#33 id=33 data-nosnippet>33</a>    RA: Send,
+<a href=#34 id=34 data-nosnippet>34</a>    RB: Send,
+<a href=#35 id=35 data-nosnippet>35</a>{
+<a href=#36 id=36 data-nosnippet>36</a>    <span class="comment">// we need to fork eagerly, as `rayon::join_context` gives us no option to tell whether we get
+<a href=#37 id=37 data-nosnippet>37</a>    // moved to another thread before the closure is executed
+<a href=#38 id=38 data-nosnippet>38</a>    </span><span class="kw">let </span>db_a = db.fork_db();
+<a href=#39 id=39 data-nosnippet>39</a>    <span class="kw">let </span>db_b = db.fork_db();
+<a href=#40 id=40 data-nosnippet>40</a>    rayon::join(
+<a href=#41 id=41 data-nosnippet>41</a>        <span class="kw">move </span>|| a(db_a.as_view::&lt;Db&gt;()),
+<a href=#42 id=42 data-nosnippet>42</a>        <span class="kw">move </span>|| b(db_b.as_view::&lt;Db&gt;()),
+<a href=#43 id=43 data-nosnippet>43</a>    )
+<a href=#44 id=44 data-nosnippet>44</a>}</code></pre></div></section></main></body></html>

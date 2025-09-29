@@ -1,0 +1,1 @@
+searchState.loadedDescShard("salsa_macros", 0, "This crate provides salsa’s macros and attributes.")

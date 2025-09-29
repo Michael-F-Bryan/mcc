@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Macro to generate an implementation of `Adapter` for a given set of types. In particular this will automatically generate implementations of the `get_value` and `get_link` methods for a given named field in a struct."><title>intrusive_adapter in intrusive_collections - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="intrusive_collections" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../intrusive_collections/index.html">intrusive_<wbr>collections</a><span class="version">0.9.7</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">intrusive_<wbr>adapter</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#generics" title="Generics">Generics</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate intrusive_<wbr>collections</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">intrusive_collections</a></div><h1>Macro <span class="macro">intrusive_adapter</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/intrusive_collections/adapter.rs.html#166-266">Source</a> </span></div><pre class="rust item-decl"><code>macro_rules! intrusive_adapter {
+    (@impl
+        $(#[$attr:meta])* $vis:vis $name:ident ($($args:tt),*)
+        = $pointer:ty: $value:path { $field:ident: $link:ty } $($where_:tt)*
+    ) =&gt; { ... };
+    (@find_generic
+        $(#[$attr:meta])* $vis:vis $name:ident ($($prev:tt)*) &gt; $($rest:tt)*
+    ) =&gt; { ... };
+    (@find_generic
+        $(#[$attr:meta])* $vis:vis $name:ident ($($prev:tt)*) $cur:tt $($rest:tt)*
+    ) =&gt; { ... };
+    (@find_if_generic
+        $(#[$attr:meta])* $vis:vis $name:ident &lt; $($rest:tt)*
+    ) =&gt; { ... };
+    (@find_if_generic
+        $(#[$attr:meta])* $vis:vis $name:ident $($rest:tt)*
+    ) =&gt; { ... };
+    ($(#[$attr:meta])* $vis:vis $name:ident $($rest:tt)*) =&gt; { ... };
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Macro to generate an implementation of <code>Adapter</code> for a given set of types.
+In particular this will automatically generate implementations of the
+<code>get_value</code> and <code>get_link</code> methods for a given named field in a struct.</p>
+<p>The basic syntax to create an adapter is:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">intrusive_adapter!</span>(Adapter = Pointer: Value { link_field: LinkType });</code></pre></div>
+<p>You can create a new instance of an adapter using the <code>new</code> method or the
+<code>NEW</code> associated constant. The adapter also implements the <code>Default</code> trait.</p>
+<h2 id="generics"><a class="doc-anchor" href="#generics">§</a>Generics</h2>
+<p>This macro supports generic arguments:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">intrusive_adapter!</span>(
+    Adapter&lt;<span class="lifetime">'lifetime</span>, Type, Type2&gt; =
+        Pointer: Value {
+            link_field: LinkType
+        }
+        <span class="kw">where
+            </span>Type: Copy,
+            Type2: <span class="question-mark">?</span>Sized + <span class="lifetime">'lifetime
+    </span>);</code></pre></div>
+<p>Note that due to macro parsing limitations, <code>T: Trait</code> bounds are not
+supported in the generic argument list. You must list any trait bounds in
+a separate <code>where</code> clause at the end of the macro.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>intrusive_collections::{LinkedListLink, RBTreeLink};
+<span class="kw">use </span>intrusive_collections::intrusive_adapter;
+
+<span class="kw">pub struct </span>Test {
+    link: LinkedListLink,
+    link2: RBTreeLink,
+}
+<span class="macro">intrusive_adapter!</span>(MyAdapter = Box&lt;Test&gt;: Test { link: LinkedListLink });
+<span class="macro">intrusive_adapter!</span>(<span class="kw">pub </span>MyAdapter2 = Box&lt;Test&gt;: Test { link2: RBTreeLink });
+<span class="macro">intrusive_adapter!</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) MyAdapter3 = Box&lt;Test&gt;: Test { link2: RBTreeLink });
+
+<span class="kw">pub struct </span>Test2&lt;T&gt;
+    <span class="kw">where </span>T: Clone + <span class="question-mark">?</span>Sized
+{
+    link: LinkedListLink,
+    val: T,
+}
+<span class="macro">intrusive_adapter!</span>(MyAdapter4&lt;<span class="lifetime">'a</span>, T&gt; = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Test2&lt;T&gt;: Test2&lt;T&gt; { link: LinkedListLink } <span class="kw">where </span>T: <span class="question-mark">?</span>Sized + Clone + <span class="lifetime">'a</span>);</code></pre></div>
+</div></details></section></div></main></body></html>

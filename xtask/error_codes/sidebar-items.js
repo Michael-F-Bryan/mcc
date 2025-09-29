@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Severity","Value"],"fn":["generate_codes_rs","generate_error_code","generate_namespace"],"static":["CODES_RS","ERROR_CODES_YAML","MCC_DIR"],"struct":["ErrorCode","ErrorCodes"]};

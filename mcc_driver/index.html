@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Michael’s C Compiler — driver library"><title>mcc_driver - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="mcc_driver" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../mcc_driver/index.html">mcc_<wbr>driver</a><span class="version">0.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#what-this-crate-offers" title="What this crate offers">What this crate offers</a></li><li><a href="#running-the-pipeline-with-callbacks" title="Running the pipeline with callbacks">Running the pipeline with callbacks</a></li><li><a href="#cli-entrypoint" title="CLI entrypoint">CLI entrypoint</a></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>mcc_driver</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/mcc_driver/lib.rs.html#1-82">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Michael’s C Compiler — driver library</p>
+<p>This crate provides the command-line interface and orchestration for the
+<code>mcc</code> compiler. It wires together the core stages from the <code>mcc</code> crate,
+manages temporary files, captures diagnostics between stages, and exposes a
+small callback API for tooling and testing.</p>
+<h3 id="what-this-crate-offers"><a class="doc-anchor" href="#what-this-crate-offers">§</a>What this crate offers</h3>
+<ul>
+<li>A <code>main()</code> entrypoint for the <code>mcc</code> binary: [<code>cli::main</code>]</li>
+<li>A stage runner with callbacks: <a href="fn.run.html" title="fn mcc_driver::run"><code>run</code></a> and the <a href="trait.Callbacks.html" title="trait mcc_driver::Callbacks"><code>Callbacks</code></a> trait</li>
+<li>A configuration object for compilation sessions: <a href="struct.Config.html" title="struct mcc_driver::Config"><code>Config</code></a></li>
+<li>An outcome type capturing success, error, or early return: <a href="enum.Outcome.html" title="enum mcc_driver::Outcome"><code>Outcome</code></a></li>
+</ul>
+<h3 id="running-the-pipeline-with-callbacks"><a class="doc-anchor" href="#running-the-pipeline-with-callbacks">§</a>Running the pipeline with callbacks</h3>
+<p>The <a href="fn.run.html" title="fn mcc_driver::run"><code>run</code></a> function executes the full pipeline:
+preprocessing → parsing → lowering → codegen → rendering → assemble+link.</p>
+<p>You can implement <a href="trait.Callbacks.html" title="trait mcc_driver::Callbacks"><code>Callbacks</code></a> to observe intermediate artifacts, collect
+diagnostics, or stop the pipeline early:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::ops::ControlFlow;
+<span class="kw">use </span>mcc_driver::{Callbacks, Config, Outcome};
+<span class="kw">use </span>mcc::{Ast, Text, diagnostics::Diagnostics, codegen::asm, lowering::tacky};
+
+<span class="kw">struct </span>Noop;
+<span class="kw">impl </span>Callbacks <span class="kw">for </span>Noop {
+    <span class="kw">type </span>Output = ();
+
+    <span class="kw">fn </span>after_parse&lt;<span class="lifetime">'db</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _db: <span class="kw-2">&amp;</span><span class="lifetime">'db </span><span class="kw">dyn </span>mcc::Db,
+        _source_file: mcc::SourceFile,
+        _ast: Ast&lt;<span class="lifetime">'db</span>&gt;,
+        _diags: Vec&lt;<span class="kw-2">&amp;</span>Diagnostics&gt;,
+    ) -&gt; ControlFlow&lt;<span class="self">Self</span>::Output&gt; {
+        ControlFlow::Continue(())
+    }
+
+    <span class="kw">fn </span>after_lower&lt;<span class="lifetime">'db</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _db: <span class="kw-2">&amp;</span><span class="lifetime">'db </span><span class="kw">dyn </span>mcc::Db,
+        _tacky: tacky::Program&lt;<span class="lifetime">'db</span>&gt;,
+        _diags: Vec&lt;<span class="kw-2">&amp;</span>Diagnostics&gt;,
+    ) -&gt; ControlFlow&lt;<span class="self">Self</span>::Output&gt; { ControlFlow::Continue(()) }
+
+    <span class="kw">fn </span>after_codegen&lt;<span class="lifetime">'db</span>&gt;(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _db: <span class="kw-2">&amp;</span><span class="lifetime">'db </span><span class="kw">dyn </span>mcc::Db,
+        _asm: asm::Program&lt;<span class="lifetime">'db</span>&gt;,
+        _diags: Vec&lt;<span class="kw-2">&amp;</span>Diagnostics&gt;,
+    ) -&gt; ControlFlow&lt;<span class="self">Self</span>::Output&gt; { ControlFlow::Continue(()) }
+
+    <span class="kw">fn </span>after_render_assembly(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _db: <span class="kw-2">&amp;</span><span class="kw">dyn </span>mcc::Db,
+        _asm: Text,
+        _diags: Vec&lt;<span class="kw-2">&amp;</span>Diagnostics&gt;,
+    ) -&gt; ControlFlow&lt;<span class="self">Self</span>::Output&gt; { ControlFlow::Continue(()) }
+}
+
+<span class="comment">// In your application:
+// let outcome = mcc_driver::run(&amp;mut Noop, config);
+// outcome.to_result()?;</span></code></pre></div>
+<h3 id="cli-entrypoint"><a class="doc-anchor" href="#cli-entrypoint">§</a>CLI entrypoint</h3>
+<p>The binary uses [<code>cli::main</code>] to parse flags (target triple, output path,
+color, stop-at-stage switches, etc.), set up tracing, and delegate to
+<a href="fn.run.html" title="fn mcc_driver::run"><code>run</code></a>. See <code>crates/mcc-driver/src/cli.rs</code> for details.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Config.html" title="struct mcc_driver::Config">Config</a></dt></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Outcome.html" title="enum mcc_driver::Outcome">Outcome</a></dt></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Callbacks.html" title="trait mcc_driver::Callbacks">Callbacks</a></dt><dd>Callbacks fired at various stages of compilation.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.run.html" title="fn mcc_driver::run">run</a></dt><dd>Run the compiler.</dd></dl></section></div></main></body></html>
