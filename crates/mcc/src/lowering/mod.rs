@@ -128,15 +128,9 @@ impl<'db> FunctionContext<'db> {
             }
         }
 
-        // If no return was emitted, add implicit return 0 (e.g. empty body or fall-through).
-        let has_return = self
-            .instructions
-            .iter()
-            .any(|i| matches!(i, tacky::Instruction::Return(_)));
-        if !has_return {
-            self.instructions
-                .push(tacky::Instruction::Return(tacky::Val::Constant(0)));
-        }
+        // Ensure every path returns: append return 0 so fall-through (e.g. if-branch not taken) exits.
+        self.instructions
+            .push(tacky::Instruction::Return(tacky::Val::Constant(0)));
     }
 
     fn lower_declaration(&mut self, decl: ast::Declaration<'db>) {
@@ -187,6 +181,9 @@ impl<'db> FunctionContext<'db> {
             ast::Statement::ExpressionStatement(e) => {
                 self.lower_expression_statement(e);
             }
+            ast::Statement::IfStatement(if_stmt) => {
+                self.lower_if_statement(if_stmt);
+            }
             other => {
                 let diagnostic = Diagnostic::bug()
                     .with_message("Statement not implemented")
@@ -197,6 +194,45 @@ impl<'db> FunctionContext<'db> {
                 diagnostic.accumulate(self.db);
             }
         }
+    }
+
+    fn lower_if_statement(&mut self, if_stmt: ast::IfStatement<'db>) {
+        let cond_paren = match if_stmt.condition().ok() {
+            Some(c) => c,
+            None => return,
+        };
+        let cond_expr = match cond_paren
+            .child()
+            .ok()
+            .and_then(|c| c.as_expression())
+        {
+            Some(e) => e,
+            None => return,
+        };
+        let cond_val = match self.lower_expression(cond_expr) {
+            Some(v) => v,
+            None => return,
+        };
+        let else_label = self.label();
+        let end_label = self.label();
+
+        self.instructions.push(tacky::Instruction::JumpIfZero {
+            condition: cond_val,
+            target: else_label.clone(),
+        });
+        if let Ok(cons) = if_stmt.consequence() {
+            self.lower_statement(cons);
+        }
+        self.instructions.push(tacky::Instruction::Jump {
+            target: end_label.clone(),
+        });
+        self.instructions.push(tacky::Instruction::Label(else_label));
+        if let Some(alt_ok) = if_stmt.alternative().and_then(|a| a.ok()) {
+            if let Ok(else_stmt) = alt_ok.child() {
+                self.lower_statement(else_stmt);
+            }
+        }
+        self.instructions.push(tacky::Instruction::Label(end_label));
     }
 
     /// Lower an expression statement (expr; or just ;). Discards the expression value.
@@ -235,6 +271,7 @@ impl<'db> FunctionContext<'db> {
             ast::Expression::BinaryExpression(binary) => self.lower_binary_expression(binary),
             ast::Expression::Identifier(ident) => self.lower_identifier(ident),
             ast::Expression::AssignmentExpression(assign) => self.lower_assignment_expression(assign),
+            ast::Expression::ConditionalExpression(cond) => self.lower_conditional_expression(cond),
             ast::Expression::ParenthesizedExpression(expr) => {
                 match expr.child().ok()? {
                     ast::anon_unions::CommaExpression_CompoundStatement_Expression_PreprocDefined::Expression(expr) => {
@@ -348,6 +385,35 @@ impl<'db> FunctionContext<'db> {
         let src = self.file.contents(self.db);
         let value = literal.utf8_text(src.as_bytes()).ok()?.parse().unwrap();
         Some(tacky::Val::Constant(value))
+    }
+
+    fn lower_conditional_expression(&mut self, cond: ast::ConditionalExpression<'_>) -> Option<tacky::Val> {
+        let cond_val = self.lower_expression(cond.condition().ok()?)?;
+        let else_label = self.label();
+        let end_label = self.label();
+        let result = tacky::Val::Var(self.temporary());
+
+        self.instructions.push(tacky::Instruction::JumpIfZero {
+            condition: cond_val,
+            target: else_label.clone(),
+        });
+        let consequence_expr = cond.consequence().and_then(|c| c.ok()).and_then(|c| c.as_expression())?;
+        let then_val = self.lower_expression(consequence_expr)?;
+        self.instructions.push(tacky::Instruction::Copy {
+            src: then_val,
+            dst: result.clone(),
+        });
+        self.instructions.push(tacky::Instruction::Jump {
+            target: end_label.clone(),
+        });
+        self.instructions.push(tacky::Instruction::Label(else_label));
+        let else_val = self.lower_expression(cond.alternative().ok()?)?;
+        self.instructions.push(tacky::Instruction::Copy {
+            src: else_val,
+            dst: result.clone(),
+        });
+        self.instructions.push(tacky::Instruction::Label(end_label));
+        Some(result)
     }
 
     fn lower_identifier(&self, ident: ast::Identifier<'_>) -> Option<tacky::Val> {

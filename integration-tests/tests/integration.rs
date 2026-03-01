@@ -44,7 +44,7 @@ use integration_tests::ExpectedResults;
 use libtest_mimic::Arguments;
 use std::path::Path;
 
-const MAX_CHAPTER: u32 = 5;
+const MAX_CHAPTER: u32 = 6;
 const EXPECTED_RESULTS: &str = include_str!("../writing-a-c-compiler-tests/expected_results.json");
 
 fn main() -> anyhow::Result<()> {
@@ -53,12 +53,25 @@ fn main() -> anyhow::Result<()> {
     let test_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("writing-a-c-compiler-tests");
 
     let ignored = [
-        // The following tests are expected to be parse errors, but we error
-        // out when doing type checking instead.
-        // The test suite expects `return int;` to be a parse error, but we
-        // error out later on when doing type checking.
+        // Parse errors that we report during type checking instead.
         "chapter_1::invalid_parse::not_expression", // return int;
         "chapter_3::invalid_parse::malformed_paren", // return 2 (- 3);
+        // Ch5 invalid: we do not yet implement these semantic/parse checks.
+        "chapter_5::invalid_parse::invalid_type",
+        "chapter_5::invalid_semantics::invalid_lvalue",
+        "chapter_5::invalid_semantics::invalid_lvalue_2",
+        "chapter_5::invalid_semantics::mixed_precedence_assignment",
+        "chapter_5::invalid_semantics::undeclared_var",
+        "chapter_5::invalid_semantics::undeclared_var_and",
+        "chapter_5::invalid_semantics::undeclared_var_compare",
+        "chapter_5::invalid_semantics::undeclared_var_unary",
+        "chapter_5::invalid_semantics::declared_after_use",
+        "chapter_5::invalid_semantics::redefine",
+        "chapter_5::invalid_semantics::use_then_redefine",
+        // Ch6 invalid: we do not yet implement these semantic checks.
+        "chapter_6::invalid_semantics::undeclared_var_in_ternary",
+        "chapter_6::invalid_semantics::invalid_var_in_if",
+        "chapter_6::invalid_semantics::ternary_assign",
     ];
     let mut trials = Vec::new();
     let expected_results: ExpectedResults = serde_json::from_str(EXPECTED_RESULTS)?;
