@@ -269,7 +269,7 @@ impl mcc_driver::Callbacks for Callbacks {
         _tacky: mcc::lowering::tacky::Program<'db>,
         diags: Vec<&Diagnostics>,
     ) -> ControlFlow<Result<(), Error>> {
-        self.handle_diags(&["tacky"], diags)
+        self.handle_diags(&["tacky", "semantics"], diags)
     }
 
     fn after_codegen<'db>(

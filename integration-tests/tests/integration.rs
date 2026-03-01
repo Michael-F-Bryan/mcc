@@ -56,7 +56,11 @@ fn main() -> anyhow::Result<()> {
     let ignored = [
         // Structural difference: we report these during type checking, not parsing.
         "chapter_1::invalid_parse::not_expression", // return int;
+        "chapter_1::invalid_parse::missing_type",   // main(void){...}: we report missing return type at typecheck
         "chapter_3::invalid_parse::malformed_paren", // return 2 (- 3);
+        "chapter_5::invalid_parse::invalid_type",   // invalid type specifier: we report at typecheck
+        "chapter_5::invalid_parse::declare_keyword_as_var", // keyword as identifier: we report at typecheck
+        "chapter_5::invalid_semantics::invalid_lvalue", // a+3=4: we reject at parse (grammar), book expects semantics
     ];
     let mut trials = Vec::new();
     let expected_results: ExpectedResults = serde_json::from_str(EXPECTED_RESULTS)?;

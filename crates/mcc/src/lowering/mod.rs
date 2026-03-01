@@ -1,5 +1,7 @@
 //! Lower from an [Abstract Syntax Tree](mcc_syntax::ast) to [Three Address Code](tacky).
 
+use std::collections::HashSet;
+
 use codespan_reporting::diagnostic::Label;
 use mcc_syntax::{Span, ast};
 use type_sitter::{HasChild, HasChildren, HasOptionalChild, Node, TreeCursor};
@@ -106,6 +108,8 @@ struct FunctionContext<'db> {
     file: SourceFile,
     instructions: Vec<tacky::Instruction>,
     next_anonymous: u32,
+    /// Names declared in this function (for undeclared/redefinition checks).
+    declared: HashSet<String>,
 }
 
 impl<'db> FunctionContext<'db> {
@@ -115,11 +119,11 @@ impl<'db> FunctionContext<'db> {
             file,
             instructions: Vec::new(),
             next_anonymous: 0,
+            declared: HashSet::new(),
         }
     }
     fn lower_body(&mut self, body: ast::CompoundStatement<'db>) {
         let mut cursor: TreeCursor<'db> = body.walk();
-
         for child in body.children(&mut cursor).filter_map(|c| c.ok()) {
             if let Some(decl) = child.as_declaration() {
                 self.lower_declaration(decl);
@@ -127,7 +131,6 @@ impl<'db> FunctionContext<'db> {
                 self.lower_statement(stmt);
             }
         }
-
         // Ensure every path returns: append return 0 so fall-through (e.g. if-branch not taken) exits.
         self.instructions
             .push(tacky::Instruction::Return(tacky::Val::Constant(0)));
@@ -140,30 +143,46 @@ impl<'db> FunctionContext<'db> {
                 Some(d) => d,
                 None => continue,
             };
-            if let Some(init_decl) = d.as_init_declarator() {
-                let decl_node = match init_decl.declarator().ok() {
-                    Some(n) => n,
-                    None => continue,
+            let (ident, init_expr): (ast::Identifier<'db>, Option<ast::Expression<'db>>) =
+                if let Some(init_decl) = d.as_init_declarator() {
+                    let decl_node = match init_decl.declarator().ok() {
+                        Some(n) => n,
+                        None => continue,
+                    };
+                    let ident = match decl_node.as_identifier() {
+                        Some(id) => id,
+                        None => continue,
+                    };
+                    let init = init_decl.value().ok().and_then(|v| v.as_expression());
+                    (ident, init)
+                } else if let Some(ident) = d.as_identifier() {
+                    (ident, None)
+                } else {
+                    continue;
                 };
-                let ident = match decl_node.as_identifier() {
-                    Some(id) => id,
-                    None => continue,
-                };
-                let value = match init_decl.value().ok() {
-                    Some(v) => v,
-                    None => continue,
-                };
-                let expr = match value.as_expression() {
-                    Some(e) => e,
-                    None => continue,
-                };
-                let src = self.file.contents(self.db);
-                let name = match ident.utf8_text(src.as_bytes()).ok() {
-                    Some(n) => n,
-                    None => continue,
-                };
+            let src = self.file.contents(self.db);
+            let name = match ident.utf8_text(src.as_bytes()).ok() {
+                Some(n) => n,
+                None => continue,
+            };
+            let name_owned = name.to_string();
+
+            if self.declared.contains(&name_owned) {
+                let diagnostic = Diagnostic::error()
+                    .with_message("redefinition of variable")
+                    .with_code(codes::type_check::redefinition)
+                    .with_labels(vec![
+                        Label::primary(self.file, Span::for_node(*ident.raw()))
+                            .with_message("redefined here"),
+                    ]);
+                diagnostic.accumulate(self.db);
+                continue;
+            }
+            self.declared.insert(name_owned.clone());
+
+            if let Some(expr) = init_expr {
                 if let Some(val) = self.lower_expression(expr) {
-                    let dst = tacky::Val::Var(tacky::Variable::Named(name.into()));
+                    let dst = tacky::Val::Var(tacky::Variable::Named(name_owned.into()));
                     self.instructions.push(tacky::Instruction::Copy {
                         src: val,
                         dst: dst.clone(),
@@ -201,11 +220,7 @@ impl<'db> FunctionContext<'db> {
             Some(c) => c,
             None => return,
         };
-        let cond_expr = match cond_paren
-            .child()
-            .ok()
-            .and_then(|c| c.as_expression())
-        {
+        let cond_expr = match cond_paren.child().ok().and_then(|c| c.as_expression()) {
             Some(e) => e,
             None => return,
         };
@@ -226,7 +241,8 @@ impl<'db> FunctionContext<'db> {
         self.instructions.push(tacky::Instruction::Jump {
             target: end_label.clone(),
         });
-        self.instructions.push(tacky::Instruction::Label(else_label));
+        self.instructions
+            .push(tacky::Instruction::Label(else_label));
         if let Some(alt_ok) = if_stmt.alternative().and_then(|a| a.ok()) {
             if let Ok(else_stmt) = alt_ok.child() {
                 self.lower_statement(else_stmt);
@@ -387,7 +403,10 @@ impl<'db> FunctionContext<'db> {
         Some(tacky::Val::Constant(value))
     }
 
-    fn lower_conditional_expression(&mut self, cond: ast::ConditionalExpression<'_>) -> Option<tacky::Val> {
+    fn lower_conditional_expression(
+        &mut self,
+        cond: ast::ConditionalExpression<'_>,
+    ) -> Option<tacky::Val> {
         let cond_val = self.lower_expression(cond.condition().ok()?)?;
         let else_label = self.label();
         let end_label = self.label();
@@ -397,7 +416,10 @@ impl<'db> FunctionContext<'db> {
             condition: cond_val,
             target: else_label.clone(),
         });
-        let consequence_expr = cond.consequence().and_then(|c| c.ok()).and_then(|c| c.as_expression())?;
+        let consequence_expr = cond
+            .consequence()
+            .and_then(|c| c.ok())
+            .and_then(|c| c.as_expression())?;
         let then_val = self.lower_expression(consequence_expr)?;
         self.instructions.push(tacky::Instruction::Copy {
             src: then_val,
@@ -406,7 +428,8 @@ impl<'db> FunctionContext<'db> {
         self.instructions.push(tacky::Instruction::Jump {
             target: end_label.clone(),
         });
-        self.instructions.push(tacky::Instruction::Label(else_label));
+        self.instructions
+            .push(tacky::Instruction::Label(else_label));
         let else_val = self.lower_expression(cond.alternative().ok()?)?;
         self.instructions.push(tacky::Instruction::Copy {
             src: else_val,
@@ -419,25 +442,54 @@ impl<'db> FunctionContext<'db> {
     fn lower_identifier(&self, ident: ast::Identifier<'_>) -> Option<tacky::Val> {
         let src = self.file.contents(self.db);
         let name = ident.utf8_text(src.as_bytes()).ok()?;
+        if !self.declared.contains(name) {
+            let diagnostic = Diagnostic::error()
+                .with_message(format!("use of undeclared identifier \"{name}\""))
+                .with_code(codes::type_check::undeclared_identifier)
+                .with_labels(vec![
+                    Label::primary(self.file, Span::for_node(*ident.raw()))
+                        .with_message("undeclared"),
+                ]);
+            diagnostic.accumulate(self.db);
+            return None;
+        }
         Some(tacky::Val::Var(tacky::Variable::Named(name.into())))
     }
 
-    fn lower_assignment_expression(&mut self, assign: ast::AssignmentExpression<'_>) -> Option<tacky::Val> {
+    fn lower_assignment_expression(
+        &mut self,
+        assign: ast::AssignmentExpression<'_>,
+    ) -> Option<tacky::Val> {
         let right_expr = assign.right().ok()?;
         let right_val = self.lower_expression(right_expr)?;
         let left = assign.left().ok()?;
-        let ident = left.as_identifier().or_else(|| {
-            let diagnostic = Diagnostic::bug()
-                .with_message("Assignment target not implemented")
-                .with_code(codes::type_check::unimplemented)
-                .with_labels(vec![
-                    Label::primary(self.file, Span::for_node(*left.raw())).with_message(left.kind()),
-                ]);
-            diagnostic.accumulate(self.db);
-            None
-        })?;
+        let ident = match left.as_identifier() {
+            Some(id) => id,
+            None => {
+                let diagnostic = Diagnostic::error()
+                    .with_message("assignment to non-lvalue (invalid left-hand side)")
+                    .with_code(codes::type_check::invalid_lvalue)
+                    .with_labels(vec![
+                        Label::primary(self.file, Span::for_node(*left.raw()))
+                            .with_message("not an lvalue"),
+                    ]);
+                diagnostic.accumulate(self.db);
+                return None;
+            }
+        };
         let src = self.file.contents(self.db);
         let name = ident.utf8_text(src.as_bytes()).ok()?;
+        if !self.declared.contains(name) {
+            let diagnostic = Diagnostic::error()
+                .with_message(format!("use of undeclared identifier \"{name}\""))
+                .with_code(codes::type_check::undeclared_identifier)
+                .with_labels(vec![
+                    Label::primary(self.file, Span::for_node(*ident.raw()))
+                        .with_message("undeclared"),
+                ]);
+            diagnostic.accumulate(self.db);
+            return None;
+        }
         let dst = tacky::Val::Var(tacky::Variable::Named(name.into()));
         self.instructions.push(tacky::Instruction::Copy {
             src: right_val.clone(),
@@ -664,13 +716,25 @@ pub fn lower_stage_diagnostics(
 pub fn lower_program<'db>(db: &'db dyn Db, file: SourceFile) -> tacky::Program<'db> {
     let tu = crate::typechecking::typecheck(db, file);
     let file_ref = tu.file(db);
-    let functions: Vec<_> = tu
-        .items(db)
-        .iter()
-        .filter_map(|item| match item {
-            hir::Item::Function(f) => lower_hir_function(db, file_ref, *f),
-        })
-        .collect();
+    let mut functions = Vec::new();
+    for item in tu.items(db) {
+        let hir::Item::Function(f) = item;
+        // Lower inline so diagnostics accumulated in lower_body are attributed to this query.
+        let node = f.node(db).node(db);
+        let body: ast::CompoundStatement<'db> = match node.body().ok() {
+            Some(b) => b,
+            None => continue,
+        };
+        let mut ctx = FunctionContext::new(db, file_ref);
+        ctx.lower_body(body);
+        let name = f.name(db).text(db);
+        functions.push(tacky::FunctionDefinition::new(
+            db,
+            name,
+            ctx.instructions,
+            node.span(),
+        ));
+    }
 
     match functions.as_slice() {
         [] => {
@@ -702,9 +766,8 @@ pub fn lower_program<'db>(db: &'db dyn Db, file: SourceFile) -> tacky::Program<'
     tacky::Program::new(db, functions)
 }
 
-/// Lower a single HIR function to TACKY. Cached per (file, function). Diagnostics are
-/// accumulated on the database (attributed to the calling query, e.g. [`lower_program`]).
-#[salsa::tracked]
+/// Lower a single HIR function to TACKY. Not tracked so that diagnostics accumulated during
+/// lowering are attributed to the caller ([`lower_program`]) and appear in `lower_stage_diagnostics`.
 fn lower_hir_function<'db>(
     db: &'db dyn Db,
     file: SourceFile,

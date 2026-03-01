@@ -32,9 +32,16 @@ impl std::fmt::Display for ErrorCode {
 }
 /// All error codes.
 pub const ALL: &[ErrorCode] = &[
+    parse::invalid_type,
     parse::keyword_as_identifier,
     parse::missing_token,
     parse::unexpected_token,
+    type_check::invalid_lvalue,
+    type_check::invalid_type,
+    type_check::keyword_as_identifier,
+    type_check::missing_return_type,
+    type_check::redefinition,
+    type_check::undeclared_identifier,
     type_check::unimplemented,
 ];
 /// The error codes definition, as YAML.
@@ -43,6 +50,12 @@ pub const DEFINITION: &str = include_str!(
 );
 pub mod parse {
     use super::*;
+    ///Invalid or unsupported type specifier.
+    pub const invalid_type: ErrorCode = ErrorCode {
+        segments: &["parse", "invalid_type"],
+        severity: Severity::Error,
+        description: "Invalid or unsupported type specifier.",
+    };
     ///A C keyword was used as an identifier.
     pub const keyword_as_identifier: ErrorCode = ErrorCode {
         segments: &["parse", "keyword_as_identifier"],
@@ -64,6 +77,42 @@ pub mod parse {
 }
 pub mod type_check {
     use super::*;
+    ///Assignment to non-lvalue (invalid left-hand side).
+    pub const invalid_lvalue: ErrorCode = ErrorCode {
+        segments: &["type_check", "invalid_lvalue"],
+        severity: Severity::Error,
+        description: "Assignment to non-lvalue (invalid left-hand side).",
+    };
+    ///Invalid or unsupported type specifier.
+    pub const invalid_type: ErrorCode = ErrorCode {
+        segments: &["type_check", "invalid_type"],
+        severity: Severity::Error,
+        description: "Invalid or unsupported type specifier.",
+    };
+    ///A C keyword was used as an identifier.
+    pub const keyword_as_identifier: ErrorCode = ErrorCode {
+        segments: &["type_check", "keyword_as_identifier"],
+        severity: Severity::Error,
+        description: "A C keyword was used as an identifier.",
+    };
+    ///Expected a return type for function.
+    pub const missing_return_type: ErrorCode = ErrorCode {
+        segments: &["type_check", "missing_return_type"],
+        severity: Severity::Error,
+        description: "Expected a return type for function.",
+    };
+    ///Redefinition of variable.
+    pub const redefinition: ErrorCode = ErrorCode {
+        segments: &["type_check", "redefinition"],
+        severity: Severity::Error,
+        description: "Redefinition of variable.",
+    };
+    ///Use of undeclared identifier.
+    pub const undeclared_identifier: ErrorCode = ErrorCode {
+        segments: &["type_check", "undeclared_identifier"],
+        severity: Severity::Error,
+        description: "Use of undeclared identifier.",
+    };
     ///This part of the type checker isn't implemented.
     pub const unimplemented: ErrorCode = ErrorCode {
         segments: &["type_check", "unimplemented"],

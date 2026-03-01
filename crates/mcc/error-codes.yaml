@@ -8,7 +8,28 @@ parse:
   keyword_as_identifier:
     severity: Error
     description: A C keyword was used as an identifier.
+  invalid_type:
+    severity: Error
+    description: Invalid or unsupported type specifier.
 type_check:
   unimplemented:
     severity: Bug
     description: This part of the type checker isn't implemented.
+  invalid_type:
+    severity: Error
+    description: Invalid or unsupported type specifier.
+  keyword_as_identifier:
+    severity: Error
+    description: A C keyword was used as an identifier.
+  missing_return_type:
+    severity: Error
+    description: Expected a return type for function.
+  undeclared_identifier:
+    severity: Error
+    description: Use of undeclared identifier.
+  redefinition:
+    severity: Error
+    description: Redefinition of variable.
+  invalid_lvalue:
+    severity: Error
+    description: Assignment to non-lvalue (invalid left-hand side).
