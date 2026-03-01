@@ -36,8 +36,9 @@
 //!
 //! Tests can be selectively ignored by:
 //! - Setting `MAX_CHAPTER` to limit which chapters are tested
-//! - Adding test names to the `ignored` array for tests that fail due to implementation
-//!   differences (e.g., tests expected to fail at parse time but failing during type checking)
+//! - Adding test names to the `ignored` array **only** when our design structurally differs from
+//!   the book (e.g. we report an error at type-check instead of parse). Do NOT use ignored for
+//!   unimplemented features—leave those tests failing until the feature is implemented.
 
 use anyhow::Context;
 use integration_tests::ExpectedResults;
@@ -53,25 +54,9 @@ fn main() -> anyhow::Result<()> {
     let test_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("writing-a-c-compiler-tests");
 
     let ignored = [
-        // Parse errors that we report during type checking instead.
+        // Structural difference: we report these during type checking, not parsing.
         "chapter_1::invalid_parse::not_expression", // return int;
         "chapter_3::invalid_parse::malformed_paren", // return 2 (- 3);
-        // Ch5 invalid: we do not yet implement these semantic/parse checks.
-        "chapter_5::invalid_parse::invalid_type",
-        "chapter_5::invalid_semantics::invalid_lvalue",
-        "chapter_5::invalid_semantics::invalid_lvalue_2",
-        "chapter_5::invalid_semantics::mixed_precedence_assignment",
-        "chapter_5::invalid_semantics::undeclared_var",
-        "chapter_5::invalid_semantics::undeclared_var_and",
-        "chapter_5::invalid_semantics::undeclared_var_compare",
-        "chapter_5::invalid_semantics::undeclared_var_unary",
-        "chapter_5::invalid_semantics::declared_after_use",
-        "chapter_5::invalid_semantics::redefine",
-        "chapter_5::invalid_semantics::use_then_redefine",
-        // Ch6 invalid: we do not yet implement these semantic checks.
-        "chapter_6::invalid_semantics::undeclared_var_in_ternary",
-        "chapter_6::invalid_semantics::invalid_var_in_if",
-        "chapter_6::invalid_semantics::ternary_assign",
     ];
     let mut trials = Vec::new();
     let expected_results: ExpectedResults = serde_json::from_str(EXPECTED_RESULTS)?;
