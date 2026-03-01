@@ -83,8 +83,10 @@ mod files;
 pub mod lowering;
 mod parsing;
 mod preprocessing;
+pub mod ptr;
 mod render;
 mod text;
+pub mod typechecking;
 mod types;
 
 use std::fmt::{self, Debug};

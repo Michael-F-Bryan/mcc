@@ -37,9 +37,7 @@ pub const ALL: &[ErrorCode] = &[
     type_check::unimplemented,
 ];
 /// The error codes definition, as YAML.
-pub const DEFINITION: &str = include_str!(
-    concat!(env!("CARGO_MANIFEST_DIR"), "/error-codes.yaml")
-);
+pub const DEFINITION: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/error-codes.yaml"));
 pub mod parse {
     use super::*;
     ///The parser expected a token but found none.

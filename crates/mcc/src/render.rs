@@ -10,15 +10,13 @@ use crate::{Db, Text, codegen::asm};
 /// Render a set of assembly instructions as a string.
 #[tracing::instrument(level = "debug", skip_all, fields(target = %target))]
 #[salsa::tracked]
-pub fn render_program<'db>(
-    db: &'db dyn Db,
-    program: asm::Program<'db>,
-    target: Triple,
-) -> Result<Text, fmt::Error> {
+pub fn render_program<'db>(db: &'db dyn Db, program: asm::Program<'db>, target: Triple) -> Text {
     let mut output = String::new();
     let mut renderer = AssemblyRenderer::new(target, &mut output);
-    renderer.program(db, program)?;
-    Ok(output.into())
+    renderer
+        .program(db, program)
+        .expect("Unreachable: formatting should never fail");
+    output.into()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

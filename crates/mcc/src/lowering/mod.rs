@@ -7,10 +7,63 @@ use type_sitter::{HasChild, HasChildren, HasOptionalChild, Node, TreeCursor};
 use crate::{
     Db, codes,
     diagnostics::{Diagnostic, DiagnosticExt},
+    typechecking::hir,
     types::{Ast, SourceFile},
 };
 
 pub mod tacky;
+
+impl<'db> hir::TranslationUnit<'db> {
+    pub fn lower(self, db: &'db dyn Db) -> tacky::Program<'db> {
+        let functions = self
+            .items(db)
+            .iter()
+            .filter_map(|item| item.lower(db, self.file(db)))
+            .collect();
+        tacky::Program::new(db, functions)
+    }
+}
+
+#[salsa::tracked]
+impl<'db> hir::Item<'db> {
+    pub fn lower(
+        self,
+        db: &'db dyn Db,
+        file: SourceFile,
+    ) -> Option<tacky::FunctionDefinition<'db>> {
+        match self {
+            hir::Item::Function(f) => f.lower(db, file),
+        }
+    }
+}
+
+#[salsa::tracked]
+impl<'db> hir::FunctionDefinition<'db> {
+    pub fn lower(
+        self,
+        db: &'db dyn Db,
+        file: SourceFile,
+    ) -> Option<tacky::FunctionDefinition<'db>> {
+        let node = self.node(db).node(db);
+
+        let signature: ast::FunctionDeclarator<'db> =
+            node.declarator().ok()?.as_function_declarator()?;
+        let ident: ast::Identifier<'db> = signature.declarator().ok()?.as_identifier()?;
+        let src = file.contents(db);
+        let name = ident.utf8_text(src.as_bytes()).ok()?;
+
+        let body: ast::CompoundStatement<'db> = node.body().ok()?;
+        let mut ctx = FunctionContext::new(db, file);
+        ctx.lower_body(body);
+
+        Some(tacky::FunctionDefinition::new(
+            db,
+            name.into(),
+            ctx.instructions,
+            node.span(),
+        ))
+    }
+}
 
 /// Lower an [Abstract Syntax Tree](mcc_syntax::ast) to our [Three Address Code](tacky)
 /// intermediate representation.

@@ -3,7 +3,7 @@ use std::{
     ops::Deref,
 };
 
-use mcc_syntax::ast::TranslationUnit;
+use mcc_syntax::ast;
 use type_sitter::Node;
 
 use crate::{Db, Text};
@@ -19,6 +19,13 @@ pub struct SourceFile {
 }
 
 #[salsa::tracked]
+impl SourceFile {
+    pub fn ast(self, db: &dyn Db) -> Ast<'_> {
+        crate::parse(db, self)
+    }
+}
+
+#[salsa::tracked]
 pub struct Ast<'db> {
     #[returns(ref)]
     pub tree: Tree,
@@ -30,9 +37,9 @@ impl<'db> Ast<'db> {
         SexpPrinter::new(self.tree(db).root_node())
     }
 
-    pub fn root(&self, db: &'db dyn Db) -> TranslationUnit<'db> {
+    pub fn root(&self, db: &'db dyn Db) -> ast::TranslationUnit<'db> {
         let root = self.tree(db).root_node();
-        TranslationUnit::try_from_raw(root).unwrap()
+        ast::TranslationUnit::try_from_raw(root).unwrap()
     }
 }
 
@@ -126,6 +133,8 @@ impl<'db> Display for SexpPrinter<'db> {
     }
 }
 
+/// A newtype'd [`tree_sitter::Tree`] which implements [`Eq`] so it can be used
+/// with [`salsa`].
 #[derive(Debug, Clone)]
 pub struct Tree(pub tree_sitter::Tree);
 

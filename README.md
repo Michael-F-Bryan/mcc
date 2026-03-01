@@ -1,6 +1,6 @@
 # Michael's C Compiler
 
-[![Continuous integration](https://github.com/Michael-F-Bryan/mc/workflows/Continuous%20Integration/badge.svg?branch=main)](https://github.com/Michael-F-Bryan/mc/actions)
+[![Continuous integration](https://github.com/Michael-F-Bryan/mcc/workflows/Continuous%20Integration/badge.svg?branch=main)](https://github.com/Michael-F-Bryan/mcc/actions)
 
 ([API Docs][api-docs])
 
@@ -32,6 +32,6 @@ conditions.
 The intent of this crate is to be free of soundness bugs. The developers will
 do their best to avoid them, and welcome help in analysing and fixing them.
 
-[api-docs]: https://michael-f-bryan.github.io/mc
+[api-docs]: https://michael-f-bryan.github.io/mcc
 [crev]: https://github.com/crev-dev/cargo-crev
 [salsa]: https://github.com/salsa-rs/salsa
