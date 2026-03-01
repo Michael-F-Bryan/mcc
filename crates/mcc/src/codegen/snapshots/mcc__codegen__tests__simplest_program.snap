@@ -17,6 +17,17 @@ expression: assembly.serialize_with_db(&db)
             }
           }
         },
+        "Ret",
+        {
+          "Mov": {
+            "src": {
+              "Imm": 0
+            },
+            "dst": {
+              "Register": "AX"
+            }
+          }
+        },
         "Ret"
       ],
       "span": {
