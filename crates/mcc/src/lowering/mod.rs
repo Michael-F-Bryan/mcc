@@ -18,33 +18,21 @@ impl<'db> hir::TranslationUnit<'db> {
         let functions = self
             .items(db)
             .iter()
-            .filter_map(|item| item.lower(db, self.file(db)))
+            .filter_map(|item| lower_item(db, *item, self.file(db)))
             .collect();
         tacky::Program::new(db, functions)
     }
 }
 
+/// Lower a single HIR item to TACKY. Cached per (item, file).
 #[salsa::tracked]
-impl<'db> hir::Item<'db> {
-    pub fn lower(
-        self,
-        db: &'db dyn Db,
-        file: SourceFile,
-    ) -> Option<tacky::FunctionDefinition<'db>> {
-        match self {
-            hir::Item::Function(f) => f.lower(db, file),
-        }
-    }
-}
-
-#[salsa::tracked]
-impl<'db> hir::FunctionDefinition<'db> {
-    pub fn lower(
-        self,
-        db: &'db dyn Db,
-        file: SourceFile,
-    ) -> Option<tacky::FunctionDefinition<'db>> {
-        lower_hir_function(db, file, self)
+pub fn lower_item<'db>(
+    db: &'db dyn Db,
+    item: hir::Item<'db>,
+    file: SourceFile,
+) -> Option<tacky::FunctionDefinition<'db>> {
+    match item {
+        hir::Item::Function(f) => lower_hir_function(db, file, f),
     }
 }
 
@@ -551,8 +539,9 @@ pub fn lower_program<'db>(db: &'db dyn Db, file: SourceFile) -> tacky::Program<'
     tacky::Program::new(db, functions)
 }
 
-/// Non-tracked helper: lower a single HIR function to TACKY. Diagnostics are accumulated
-/// on the database (attributed to the calling query, e.g. [`lower_program`]).
+/// Lower a single HIR function to TACKY. Cached per (file, function). Diagnostics are
+/// accumulated on the database (attributed to the calling query, e.g. [`lower_program`]).
+#[salsa::tracked]
 fn lower_hir_function<'db>(
     db: &'db dyn Db,
     file: SourceFile,
@@ -601,7 +590,7 @@ mod tests {
         assert!(
             diags
                 .iter()
-                .any(|d| format!("{d:?}").contains("must contain a valid `main` function")),
+                .any(|d| format!("{d:?}").contains("Only a `main` function is supported")),
             "expected diagnostic about missing main, got: {:?}",
             diags
         );

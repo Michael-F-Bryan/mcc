@@ -21,7 +21,7 @@ pub fn function_signature<'db>(
     let raw = node.raw();
 
     let return_type = raw
-        .child_by_field_name("declaration_specifiers")
+        .child_by_field_name("type")
         .and_then(|spec| spec.utf8_text(src.as_bytes()).ok())
         .map(|s| match s.trim() {
             "int" => hir::Type::Int,
