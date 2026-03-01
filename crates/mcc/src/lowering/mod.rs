@@ -120,12 +120,62 @@ impl<'db> FunctionContext<'db> {
     fn lower_body(&mut self, body: ast::CompoundStatement<'db>) {
         let mut cursor: TreeCursor<'db> = body.walk();
 
-        for child in body
-            .children(&mut cursor)
-            .filter_map(|c| c.ok())
-            .filter_map(|c| c.as_statement())
-        {
-            self.lower_statement(child);
+        for child in body.children(&mut cursor).filter_map(|c| c.ok()) {
+            if let Some(decl) = child.as_declaration() {
+                self.lower_declaration(decl);
+            } else if let Some(stmt) = child.as_statement() {
+                self.lower_statement(stmt);
+            }
+        }
+
+        // If no return was emitted, add implicit return 0 (e.g. empty body or fall-through).
+        let has_return = self
+            .instructions
+            .iter()
+            .any(|i| matches!(i, tacky::Instruction::Return(_)));
+        if !has_return {
+            self.instructions
+                .push(tacky::Instruction::Return(tacky::Val::Constant(0)));
+        }
+    }
+
+    fn lower_declaration(&mut self, decl: ast::Declaration<'db>) {
+        let mut cursor = decl.walk();
+        for declarator_result in decl.declarators(&mut cursor) {
+            let d = match declarator_result.ok() {
+                Some(d) => d,
+                None => continue,
+            };
+            if let Some(init_decl) = d.as_init_declarator() {
+                let decl_node = match init_decl.declarator().ok() {
+                    Some(n) => n,
+                    None => continue,
+                };
+                let ident = match decl_node.as_identifier() {
+                    Some(id) => id,
+                    None => continue,
+                };
+                let value = match init_decl.value().ok() {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let expr = match value.as_expression() {
+                    Some(e) => e,
+                    None => continue,
+                };
+                let src = self.file.contents(self.db);
+                let name = match ident.utf8_text(src.as_bytes()).ok() {
+                    Some(n) => n,
+                    None => continue,
+                };
+                if let Some(val) = self.lower_expression(expr) {
+                    let dst = tacky::Val::Var(tacky::Variable::Named(name.into()));
+                    self.instructions.push(tacky::Instruction::Copy {
+                        src: val,
+                        dst: dst.clone(),
+                    });
+                }
+            }
         }
     }
 
@@ -133,6 +183,9 @@ impl<'db> FunctionContext<'db> {
         match statement {
             ast::Statement::ReturnStatement(r) => {
                 self.lower_return_statement(r);
+            }
+            ast::Statement::ExpressionStatement(e) => {
+                self.lower_expression_statement(e);
             }
             other => {
                 let diagnostic = Diagnostic::bug()
@@ -142,6 +195,15 @@ impl<'db> FunctionContext<'db> {
                         Label::primary(self.file, other.span()).with_message(other.kind()),
                     ]);
                 diagnostic.accumulate(self.db);
+            }
+        }
+    }
+
+    /// Lower an expression statement (expr; or just ;). Discards the expression value.
+    fn lower_expression_statement(&mut self, stmt: ast::ExpressionStatement<'db>) {
+        if let Some(child) = stmt.child().and_then(|c| c.ok()) {
+            if let Some(expr) = child.as_expression() {
+                let _ = self.lower_expression(expr);
             }
         }
     }
@@ -156,7 +218,10 @@ impl<'db> FunctionContext<'db> {
                 let ret = self.lower_expression(expr)?;
                 self.instructions.push(tacky::Instruction::Return(ret));
             }
-            None => todo!(),
+            None => {
+                self.instructions
+                    .push(tacky::Instruction::Return(tacky::Val::Constant(0)));
+            }
         }
 
         Some(())
@@ -168,6 +233,8 @@ impl<'db> FunctionContext<'db> {
             ast::Expression::NumberLiteral(literal) => self.lower_number_literal(literal),
             ast::Expression::UnaryExpression(unary) => self.lower_unary_expression(unary),
             ast::Expression::BinaryExpression(binary) => self.lower_binary_expression(binary),
+            ast::Expression::Identifier(ident) => self.lower_identifier(ident),
+            ast::Expression::AssignmentExpression(assign) => self.lower_assignment_expression(assign),
             ast::Expression::ParenthesizedExpression(expr) => {
                 match expr.child().ok()? {
                     ast::anon_unions::CommaExpression_CompoundStatement_Expression_PreprocDefined::Expression(expr) => {
@@ -281,6 +348,36 @@ impl<'db> FunctionContext<'db> {
         let src = self.file.contents(self.db);
         let value = literal.utf8_text(src.as_bytes()).ok()?.parse().unwrap();
         Some(tacky::Val::Constant(value))
+    }
+
+    fn lower_identifier(&self, ident: ast::Identifier<'_>) -> Option<tacky::Val> {
+        let src = self.file.contents(self.db);
+        let name = ident.utf8_text(src.as_bytes()).ok()?;
+        Some(tacky::Val::Var(tacky::Variable::Named(name.into())))
+    }
+
+    fn lower_assignment_expression(&mut self, assign: ast::AssignmentExpression<'_>) -> Option<tacky::Val> {
+        let right_expr = assign.right().ok()?;
+        let right_val = self.lower_expression(right_expr)?;
+        let left = assign.left().ok()?;
+        let ident = left.as_identifier().or_else(|| {
+            let diagnostic = Diagnostic::bug()
+                .with_message("Assignment target not implemented")
+                .with_code(codes::type_check::unimplemented)
+                .with_labels(vec![
+                    Label::primary(self.file, Span::for_node(*left.raw())).with_message(left.kind()),
+                ]);
+            diagnostic.accumulate(self.db);
+            None
+        })?;
+        let src = self.file.contents(self.db);
+        let name = ident.utf8_text(src.as_bytes()).ok()?;
+        let dst = tacky::Val::Var(tacky::Variable::Named(name.into()));
+        self.instructions.push(tacky::Instruction::Copy {
+            src: right_val.clone(),
+            dst: dst.clone(),
+        });
+        Some(right_val)
     }
 
     fn lower_unary_expression(&mut self, unary: ast::UnaryExpression<'_>) -> Option<tacky::Val> {
