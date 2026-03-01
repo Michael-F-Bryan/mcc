@@ -44,29 +44,15 @@ impl<'db> hir::FunctionDefinition<'db> {
         db: &'db dyn Db,
         file: SourceFile,
     ) -> Option<tacky::FunctionDefinition<'db>> {
-        let node = self.node(db).node(db);
-
-        let signature: ast::FunctionDeclarator<'db> =
-            node.declarator().ok()?.as_function_declarator()?;
-        let ident: ast::Identifier<'db> = signature.declarator().ok()?.as_identifier()?;
-        let src = file.contents(db);
-        let name = ident.utf8_text(src.as_bytes()).ok()?;
-
-        let body: ast::CompoundStatement<'db> = node.body().ok()?;
-        let mut ctx = FunctionContext::new(db, file);
-        ctx.lower_body(body);
-
-        Some(tacky::FunctionDefinition::new(
-            db,
-            name.into(),
-            ctx.instructions,
-            node.span(),
-        ))
+        lower_hir_function(db, file, self)
     }
 }
 
 /// Lower an [Abstract Syntax Tree](mcc_syntax::ast) to our [Three Address Code](tacky)
 /// intermediate representation.
+///
+/// Prefer [`lower_program`] which runs typecheck then HIR-based lowering; this function
+/// bypasses the typecheck stage and is retained for tests or legacy use.
 #[tracing::instrument(level = "info", skip_all)]
 #[salsa::tracked]
 pub fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> tacky::Program<'db> {
@@ -93,35 +79,6 @@ pub fn lower<'db>(db: &'db dyn Db, ast: Ast<'db>, file: SourceFile) -> tacky::Pr
                     .with_labels(vec![
                         Label::primary(file, Span::for_node(*other.raw()))
                             .with_message(other.kind()),
-                    ]);
-                diagnostic.accumulate(db);
-            }
-        }
-    }
-
-    match functions.as_slice() {
-        [] => {
-            let diagnostic = Diagnostic::error()
-                .with_message("The program must contain a valid `main` function")
-                .with_labels(vec![
-                    Label::primary(file, translation_unit.span())
-                        .with_message("error occurred here"),
-                ]);
-            diagnostic.accumulate(db);
-        }
-        [main] if main.name(db) == "main" => {
-            // Happy path
-        }
-        [..] => {
-            for func in &functions {
-                if func.name(db).as_str() == "main" {
-                    continue;
-                }
-
-                let diagnostic = Diagnostic::error()
-                    .with_message("Only a `main` function is supported")
-                    .with_labels(vec![
-                        Label::primary(file, func.span(db)).with_message("error occurred here"),
                     ]);
                 diagnostic.accumulate(db);
             }
@@ -530,5 +487,141 @@ impl<'db> FunctionContext<'db> {
         });
 
         Some(dst)
+    }
+}
+
+/// Returns all diagnostics from the typecheck and lower stage (combined).
+///
+/// Call after [`lower_program`] to get a single list of diagnostics for the typecheck + HIR→TACKY
+/// pipeline. The driver uses this so "after_lower" receives one consolidated list.
+pub fn lower_stage_diagnostics(
+    db: &dyn Db,
+    file: SourceFile,
+) -> Vec<&crate::diagnostics::Diagnostics> {
+    let typecheck_diags =
+        crate::typechecking::typecheck::accumulated::<crate::diagnostics::Diagnostics>(db, file);
+    let lower_diags = lower_program::accumulated::<crate::diagnostics::Diagnostics>(db, file);
+    typecheck_diags.into_iter().chain(lower_diags).collect()
+}
+
+/// Lower a compilation unit from HIR to TACKY by first typechecking, then lowering each item.
+///
+/// This is the single entry point for the parse → typecheck → lower pipeline. Diagnostics from
+/// both typecheck and lowering are available via [`lower_stage_diagnostics`].
+#[tracing::instrument(level = "info", skip_all)]
+#[salsa::tracked]
+pub fn lower_program<'db>(db: &'db dyn Db, file: SourceFile) -> tacky::Program<'db> {
+    let tu = crate::typechecking::typecheck(db, file);
+    let file_ref = tu.file(db);
+    let functions: Vec<_> = tu
+        .items(db)
+        .iter()
+        .filter_map(|item| match item {
+            hir::Item::Function(f) => lower_hir_function(db, file_ref, *f),
+        })
+        .collect();
+
+    match functions.as_slice() {
+        [] => {
+            let ast = crate::parse(db, file);
+            let tu_span = ast.root(db).span();
+            Diagnostic::error()
+                .with_message("The program must contain a valid `main` function")
+                .with_labels(vec![
+                    Label::primary(file_ref, tu_span).with_message("error occurred here"),
+                ])
+                .accumulate(db);
+        }
+        [main] if main.name(db).as_str() == "main" => {}
+        [..] => {
+            for func in &functions {
+                if func.name(db).as_str() == "main" {
+                    continue;
+                }
+                Diagnostic::error()
+                    .with_message("Only a `main` function is supported")
+                    .with_labels(vec![
+                        Label::primary(file_ref, func.span(db)).with_message("error occurred here"),
+                    ])
+                    .accumulate(db);
+            }
+        }
+    }
+
+    tacky::Program::new(db, functions)
+}
+
+/// Non-tracked helper: lower a single HIR function to TACKY. Diagnostics are accumulated
+/// on the database (attributed to the calling query, e.g. [`lower_program`]).
+fn lower_hir_function<'db>(
+    db: &'db dyn Db,
+    file: SourceFile,
+    f: hir::FunctionDefinition<'db>,
+) -> Option<tacky::FunctionDefinition<'db>> {
+    let node = f.node(db).node(db);
+    let body: ast::CompoundStatement<'db> = node.body().ok()?;
+    let mut ctx = FunctionContext::new(db, file);
+    ctx.lower_body(body);
+    let name = f.name(db).text(db);
+    Some(tacky::FunctionDefinition::new(
+        db,
+        name,
+        ctx.instructions,
+        node.span(),
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Database, diagnostics::Diagnostics, types::SourceFile};
+
+    use super::*;
+
+    #[test]
+    fn lower_program_produces_tacky_with_main() {
+        let db = Database::default();
+        let src = "int main(void) { return 0; }";
+        let file = SourceFile::new(&db, "test.c".into(), src.into());
+
+        let program = lower_program(&db, file);
+
+        assert_eq!(program.functions(&db).len(), 1);
+        assert_eq!(program.functions(&db)[0].name(&db).as_str(), "main");
+    }
+
+    #[test]
+    fn lower_program_diagnoses_missing_main() {
+        let db = Database::default();
+        let src = "int foo(void) { return 0; }";
+        let file = SourceFile::new(&db, "test.c".into(), src.into());
+
+        let _ = lower_program(&db, file);
+        let diags = lower_program::accumulated::<Diagnostics>(&db, file);
+
+        assert!(
+            diags
+                .iter()
+                .any(|d| format!("{d:?}").contains("must contain a valid `main` function")),
+            "expected diagnostic about missing main, got: {:?}",
+            diags
+        );
+    }
+
+    #[test]
+    fn lower_program_diagnoses_extra_functions() {
+        let db = Database::default();
+        let src = "int main(void) { return 0; } int foo(void) { return 1; }";
+        let file = SourceFile::new(&db, "test.c".into(), src.into());
+
+        let _ = lower_program(&db, file);
+        let diags = lower_program::accumulated::<Diagnostics>(&db, file);
+
+        assert!(
+            diags
+                .iter()
+                .any(|d| format!("{d:?}").contains("Only a `main` function is supported")),
+            "expected diagnostic about only main, got: {:?}",
+            diags
+        );
     }
 }

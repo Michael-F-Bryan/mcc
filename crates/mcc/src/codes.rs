@@ -32,14 +32,23 @@ impl std::fmt::Display for ErrorCode {
 }
 /// All error codes.
 pub const ALL: &[ErrorCode] = &[
+    parse::keyword_as_identifier,
     parse::missing_token,
     parse::unexpected_token,
     type_check::unimplemented,
 ];
 /// The error codes definition, as YAML.
-pub const DEFINITION: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/error-codes.yaml"));
+pub const DEFINITION: &str = include_str!(
+    concat!(env!("CARGO_MANIFEST_DIR"), "/error-codes.yaml")
+);
 pub mod parse {
     use super::*;
+    ///A C keyword was used as an identifier.
+    pub const keyword_as_identifier: ErrorCode = ErrorCode {
+        segments: &["parse", "keyword_as_identifier"],
+        severity: Severity::Error,
+        description: "A C keyword was used as an identifier.",
+    };
     ///The parser expected a token but found none.
     pub const missing_token: ErrorCode = ErrorCode {
         segments: &["parse", "missing_token"],

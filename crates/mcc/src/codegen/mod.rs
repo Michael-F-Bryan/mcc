@@ -354,8 +354,7 @@ mod tests {
         let src = "int main(void) { return 0; }";
         let db = salsa::DatabaseImpl::default();
         let file = SourceFile::new(&db, "main.c".into(), src.into());
-        let ast = crate::parse(&db, file);
-        let tacky = crate::lower(&db, ast, file);
+        let tacky = crate::lowering::lower_program(&db, file);
         let assembly = crate::generate_assembly(&db, tacky);
 
         insta::assert_json_snapshot!(assembly.serialize_with_db(&db));

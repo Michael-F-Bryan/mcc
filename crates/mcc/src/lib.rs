@@ -9,7 +9,8 @@
 //!
 //! - Preprocessing: [`preprocess`]
 //! - Parsing: [`parse`]
-//! - Lowering to TAC: [`lowering::lower`]
+//! - Typechecking (HIR): [`typechecking::typecheck`]
+//! - Lowering to TAC: [`lowering::lower_program`]
 //! - Code generation (ASM IR): [`codegen::generate_assembly`]
 //! - Rendering (assembly text): [`render::render_program`]
 //! - Assembling and linking: [`assemble_and_link`]
@@ -30,9 +31,9 @@
 //! let src = "int main(void) { return 0; }";
 //! let file = SourceFile::new(&db, Text::from("main.c"), Text::from(src));
 //!
-//! // Parse → TAC → ASM IR → assembly text
+//! // Parse → typecheck → TAC → ASM IR → assembly text
 //! let ast = mcc::parse(&db, file);
-//! let tacky = mcc::lowering::lower(&db, ast, file);
+//! let tacky = mcc::lowering::lower_program(&db, file);
 //! let asm_ir = mcc::codegen::generate_assembly(&db, tacky);
 //! let asm_text = mcc::render_program(&db, asm_ir, mcc::default_target()).unwrap();
 //!
@@ -97,7 +98,7 @@ pub use crate::{
     codegen::generate_assembly,
     debug::SerializeWithDatabase,
     files::Files,
-    lowering::lower,
+    lowering::{lower, lower_program},
     parsing::parse,
     preprocessing::preprocess,
     render::render_program,

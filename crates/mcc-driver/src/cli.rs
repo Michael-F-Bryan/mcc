@@ -138,7 +138,7 @@ impl DefaultCallbacks {
 
         for diag in diags {
             tracing::trace!(?diag, "emitting diagnostic");
-            term::emit(&mut writer, &cfg, &self.files, &diag.0)?;
+            term::emit_to_io_write(&mut writer, &cfg, &self.files, &diag.0)?;
         }
 
         Ok(())

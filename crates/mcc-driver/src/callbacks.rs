@@ -99,9 +99,8 @@ pub fn run<C: Callbacks>(cb: &mut C, cfg: Config) -> Outcome<C::Output> {
         return Outcome::EarlyReturn(ret);
     }
 
-    let tacky = mcc::lowering::lower(&db, ast, preprocessed_file);
-    let diags: Vec<&Diagnostics> =
-        mcc::lowering::lower::accumulated::<Diagnostics>(&db, ast, preprocessed_file);
+    let tacky = mcc::lowering::lower_program(&db, preprocessed_file);
+    let diags = mcc::lowering::lower_stage_diagnostics(&db, preprocessed_file);
     if let ControlFlow::Break(ret) = cb.after_lower(&db, tacky, diags) {
         tracing::debug!("early return after lowering");
         return Outcome::EarlyReturn(ret);

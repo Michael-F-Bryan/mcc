@@ -23,7 +23,8 @@ The main compilation stages are implemented as separate modules:
 
 - **`preprocessing`** - Runs the system C preprocessor (via `cc -E -P`)
 - **`parsing`** - Tree-sitter-based parsing with error recovery and validation
-- **`lowering`** - Transforms AST into Three Address Code (TAC) intermediate representation
+- **`typechecking`** - Builds the High-Level IR (HIR) from the AST; semantic errors are surfaced here
+- **`lowering`** - Transforms HIR into Three Address Code (TAC) via `lower_program` (typecheck then HIR→TAC)
 - **`codegen`** - Lowers TAC to a target-agnostic assembly IR (`codegen::asm`)
 - **`render`** - Renders the assembly IR to textual assembly, with OS-specific conventions (e.g. leading underscore on macOS symbols)
 - **`assembling`** - Invokes the system compiler to assemble the emitted assembly file into an executable
@@ -33,7 +34,7 @@ The main compilation stages are implemented as separate modules:
 The compilation follows a linear pipeline where each stage consumes the output of the previous stage:
 
 ```
-Source File → Preprocessing → Parsing → Lowering (TAC) → Codegen (ASM IR) → Rendering (assembly text) → Assembling
+Source File → Preprocessing → Parsing → Typecheck (HIR) → Lowering (TAC) → Codegen (ASM IR) → Rendering (assembly text) → Assembling
 ```
 
 Each stage is implemented as a Salsa tracked function, enabling incremental compilation and caching of intermediate results.
@@ -42,6 +43,7 @@ Each stage is implemented as a Salsa tracked function, enabling incremental comp
 
 - **`SourceFile`** - Represents a source file with path and contents
 - **`Ast`** - Wraps the tree-sitter parse tree with strongly-typed accessors
+- **`hir::TranslationUnit`** - High-Level IR produced by typechecking; simplified AST for the translation unit
 - **`tacky::Program`** - Three Address Code (TAC) IR
 - **`codegen::asm::Program`** - Assembly IR (prior to textual rendering)
 - **`Database` / `Db`** - Salsa database/trait for incremental compilation

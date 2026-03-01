@@ -5,6 +5,9 @@ parse:
   missing_token:
     severity: Error
     description: The parser expected a token but found none.
+  keyword_as_identifier:
+    severity: Error
+    description: A C keyword was used as an identifier.
 type_check:
   unimplemented:
     severity: Bug

@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub mod hir;
+pub mod queries;
 
 #[salsa::tracked]
 #[tracing::instrument(level = "info", skip_all)]
@@ -101,5 +102,20 @@ mod tests {
 
         assert_eq!(tu.items(&db).len(), 1);
         assert_eq!(tu.items(&db)[0].name(&db).text(&db), "main");
+    }
+
+    #[test]
+    fn function_signature_returns_type_and_parameters() {
+        let db = Database::default();
+        let src = "int main(void) { return 0; }";
+        let file = SourceFile::new(&db, "test.c".into(), src.into());
+        let tu = typecheck(&db, file);
+
+        let item = &tu.items(&db)[0];
+        let hir::Item::Function(f) = item;
+        let sig = queries::function_signature(&db, *f);
+
+        assert_eq!(sig.return_type, hir::Type::Int);
+        assert!(sig.parameters.is_empty());
     }
 }

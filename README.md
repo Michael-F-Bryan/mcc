@@ -1,6 +1,6 @@
 # Michael's C Compiler
 
-[![Continuous integration](https://github.com/Michael-F-Bryan/mcc/workflows/Continuous%20Integration/badge.svg?branch=main)](https://github.com/Michael-F-Bryan/mcc/actions)
+[![Continuous Integration](https://github.com/Michael-F-Bryan/mcc/actions/workflows/ci.yml/badge.svg)](https://github.com/Michael-F-Bryan/mcc/actions/workflows/ci.yml)
 
 ([API Docs][api-docs])
 

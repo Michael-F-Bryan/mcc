@@ -1,0 +1,26 @@
+---
+alwaysApply: true
+---
+
+Never import items from the following modules directly:
+
+- `mcc_syntax::ast::*`
+- `mcc::codegen::asm::*`
+- `mcc:lowering::tacky::*`
+- `mcc::typechecking::hir::*`
+
+Instead, import the module and refer to its items using `module::TypeName`.
+
+For example,
+
+```rs
+// GOOD
+use mcc::typechecking::hir;
+fn do_stuff(tu: hir::TranslationUnit) {}
+
+// BAD
+use mcc::typechecking::hir::TranslationUnit;
+fn do_stuff(tu: TranslationUnit) {}
+```
+
+The rationale for this is that the codebase contains several different sets of intermediate representations, many of which include types with the same name but different semantics. For example, `ast::TranslationUnit` represents a parsed concrete syntax tree, possibly including errors and invalid code, whereas a `hir::TranslationUnit` contains the fully resolved items in the translation unit. By qualifying all uses of the names with their module, we avoid confusion or ambiguity.
