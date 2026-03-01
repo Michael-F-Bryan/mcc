@@ -9,15 +9,25 @@ pub struct ErrorCode {
     pub severity: Severity,
     pub description: &'static str,
 }
+impl ErrorCode {
+    /// The fully qualified path of the error code.
+    pub fn path(&self) -> impl std::fmt::Display + '_ {
+        std::fmt::from_fn(|f| {
+            for (i, segment) in self.segments.iter().enumerate() {
+                if i > 0 {
+                    write!(f, "::")?;
+                }
+                write!(f, "{}", segment)?;
+            }
+            Ok(())
+        })
+    }
+}
 impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (i, segment) in self.segments.iter().enumerate() {
-            if i > 0 {
-                write!(f, "::")?;
-            }
-            write!(f, "{}", segment)?;
-        }
-        Ok(())
+        let ErrorCode { severity, description, .. } = self;
+        let path = self.path();
+        write!(f, "{severity:?}[{path}]: {description}")
     }
 }
 /// All error codes.

@@ -51,8 +51,10 @@ fn generate_codes_rs(root_namespace: BTreeMap<String, Value>) -> impl ToTokens {
             pub description: &'static str,
         }
 
-        impl std::fmt::Display for ErrorCode {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl ErrorCode {
+            /// The fully qualified path of the error code.
+            pub fn path(&self) -> impl std::fmt::Display + '_ {
+                std::fmt::from_fn(|f| {
                 for (i, segment) in self.segments.iter().enumerate() {
                     if i > 0 {
                         write!(f, "::")?;
@@ -60,6 +62,15 @@ fn generate_codes_rs(root_namespace: BTreeMap<String, Value>) -> impl ToTokens {
                     write!(f, "{}", segment)?;
                 }
                 Ok(())
+                })
+            }
+        }
+
+        impl std::fmt::Display for ErrorCode {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let ErrorCode { severity, description, .. } = self;
+                let path = self.path();
+                write!(f, "{severity:?}[{path}]: {description}")
             }
         }
 

@@ -43,25 +43,10 @@ pub fn preprocess(db: &dyn Db, cc: OsString, src: SourceFile) -> Result<Text, Pr
     Ok(Text::from(String::from_utf8_lossy(&output.stdout)))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("preprocessing \"{path}\" with \"{cc}\" failed: {message}", cc=cc.to_string_lossy())]
 pub struct PreprocessorError {
     pub cc: OsString,
     pub path: PathBuf,
     pub message: Text,
-}
-
-impl std::error::Error for PreprocessorError {}
-
-impl std::fmt::Display for PreprocessorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let PreprocessorError {
-            cc,
-            path: src,
-            message,
-        } = self;
-        let cc = cc.to_string_lossy();
-        let src = src.display();
-        let message = message.trim();
-        write!(f, "preprocessing \"{src}\"with \"{cc}\" failed: {message}")
-    }
 }

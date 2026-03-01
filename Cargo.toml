@@ -9,7 +9,7 @@ homepage = "https://github.com/Michael-F-Bryan/mcc.git"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/Michael-F-Bryan/mcc.git"
-rust-version = "1.88.0"
+rust-version = "1.93.0"
 version = "0.0.0"
 
 [workspace.dependencies]

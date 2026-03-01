@@ -47,12 +47,11 @@ pub fn ensure_file_contents(file: &Path, contents: impl ToTokens, generator: &'s
     let contents = add_preamble(generator, contents);
     let contents = normalize_line_endings(contents);
 
-    if let Ok(original) = std::fs::read_to_string(file) {
-        if normalize_line_endings(original) == contents {
+    if let Ok(original) = std::fs::read_to_string(file)
+        && normalize_line_endings(original) == contents {
             // Already up to date
             return;
         }
-    }
 
     let display_path = file
         .strip_prefix(ROOT_DIR.as_path())

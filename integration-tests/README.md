@@ -19,18 +19,14 @@ The test framework provides:
 The main integration test uses [libtest-mimic](https://docs.rs/libtest-mimic/latest/libtest_mimic/) to provide a familiar test runner interface:
 
 ```bash
-# Test chapters 1-4 with default settings
-cargo test --test compliance_tests -- --chapter 4
+# Run integration tests (from repo root)
+cargo test -p integration-tests --test integration
 
-# Test only valid tests up to parse stage
-cargo test --test compliance_tests -- --chapter 4 --stage parse --skip-invalid
-
-# Test with extra credit features
-cargo test --test compliance_tests -- --chapter 9 --extra-credit bitwise,compound
-
-# Test with custom compiler and options
-cargo test --test compliance_tests -- --compiler ./my-compiler --compiler-option --verbose
+# Run including tests above the default chapter cap
+cargo test -p integration-tests --test integration -- --ignored
 ```
+
+The test binary is `integration`; it discovers tests from the writing-a-c-compiler-tests suite and uses libtest-mimic (standard test filter args apply).
 
 ### Programmatic Usage
 
