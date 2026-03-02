@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["invalid_lvalue","invalid_type","keyword_as_identifier","missing_return_type","redefinition","undeclared_identifier","unimplemented"]};

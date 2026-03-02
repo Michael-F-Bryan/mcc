@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["invalid_type","keyword_as_identifier","missing_token","unexpected_token"]};

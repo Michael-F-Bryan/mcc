@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["lower","lower_item","lower_program","lower_stage_diagnostics"],"mod":["tacky"]};

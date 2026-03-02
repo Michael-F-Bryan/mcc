@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="`boxcar`"><title>boxcar - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="boxcar" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0 (254b59607 2026-01-19)" data-channel="1.93.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate boxcar</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../boxcar/index.html">boxcar</a><span class="version">0.2.13</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#boxcar" title="`boxcar`"><code>boxcar</code></a><ul><li><a href="#examples" title="Examples">Examples</a></li></ul></li></ul><h3><a href="#macros">Crate Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>boxcar</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/boxcar/lib.rs.html#1-529">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="boxcar"><a class="doc-anchor" href="#boxcar">§</a><code>boxcar</code></h2>
+<p><a href="https://crates.io/crates/boxcar"><img alt="crates.io" src="https://img.shields.io/crates/v/boxcar?style=for-the-badge" height="25"></a>
+<a href="https://github.com/ibraheemdev/boxcar"><img alt="github" src="https://img.shields.io/badge/github-boxcar-blue?style=for-the-badge" height="25"></a>
+<a href="https://docs.rs/boxcar"><img alt="docs.rs" src="https://img.shields.io/docsrs/boxcar?style=for-the-badge" height="25"></a></p>
+<p>A concurrent, append-only vector.</p>
+<p>The vector provided by this crate supports lock-free <code>get</code> and <code>push</code> operations.
+The vector grows internally but never reallocates, so element addresses are stable
+for the lifetime of the vector. Additionally, both <code>get</code> and <code>push</code> run in constant-time.</p>
+<h3 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h3>
+<p>Appending an element to a vector and retrieving it:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>vec = boxcar::Vec::new();
+<span class="kw">let </span>i = vec.push(<span class="number">42</span>);
+<span class="macro">assert_eq!</span>(vec[i], <span class="number">42</span>);</code></pre></div>
+<p>The vector can be modified by multiple threads concurrently:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>vec = boxcar::Vec::new();
+
+<span class="comment">// Spawn a few threads that append to the vector.
+</span>std::thread::scope(|s| <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">6 </span>{
+    <span class="kw">let </span>vec = <span class="kw-2">&amp;</span>vec;
+
+    s.spawn(<span class="kw">move </span>|| {
+        <span class="comment">// Push through the shared reference.
+        </span>vec.push(i);
+    });
+});
+
+<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">6 </span>{
+    <span class="macro">assert!</span>(vec.iter().any(|(<span class="kw">_</span>, <span class="kw-2">&amp;</span>x)| x == i));
+}</code></pre></div>
+<p>Elements can be mutated through fine-grained locking:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>vec = boxcar::Vec::new();
+
+std::thread::scope(|s| {
+    <span class="comment">// Insert an element.
+    </span>vec.push(std::sync::Mutex::new(<span class="number">0</span>));
+
+    s.spawn(|| {
+        <span class="comment">// Mutate through the lock.
+        </span><span class="kw-2">*</span>vec[<span class="number">0</span>].lock().unwrap() += <span class="number">1</span>;
+    });
+});
+
+<span class="kw">let </span>x = vec[<span class="number">0</span>].lock().unwrap();
+<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>x, <span class="number">1</span>);</code></pre></div></div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.vec.html" title="macro boxcar::vec">vec</a></dt><dd>Creates a <a href="struct.Vec.html" title="struct boxcar::Vec"><code>Vec</code></a> containing the given elements.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.IntoIter.html" title="struct boxcar::IntoIter">Into<wbr>Iter</a></dt><dd>An iterator that moves out of a vector.</dd><dt><a class="struct" href="struct.Iter.html" title="struct boxcar::Iter">Iter</a></dt><dd>An iterator over the elements of a <a href="struct.Vec.html" title="struct boxcar::Vec"><code>Vec&lt;T&gt;</code></a>.</dd><dt><a class="struct" href="struct.Vec.html" title="struct boxcar::Vec">Vec</a></dt><dd>A concurrent, append-only vector.</dd></dl></section></div></main></body></html>

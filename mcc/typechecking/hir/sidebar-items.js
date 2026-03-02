@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Def","Item","Type"],"struct":["FunctionDefinition","Identifier","Parameter","Signature","TranslationUnit","VariableDefinition"]};

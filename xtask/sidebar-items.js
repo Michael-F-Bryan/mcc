@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Cmd"],"fn":["add_preamble","ensure_file_contents","main","normalize_line_endings"],"mod":["error_codes"],"static":["ROOT_DIR"]};
