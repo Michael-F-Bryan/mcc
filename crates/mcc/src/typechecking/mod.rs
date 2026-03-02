@@ -11,9 +11,9 @@ use crate::{
 
 const C_KEYWORDS: &[&str] = &[
     "auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else",
-    "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return",
-    "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned",
-    "void", "volatile", "while",
+    "enum", "extern", "float", "for", "goto", "if", "int", "long", "register", "return", "short",
+    "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void",
+    "volatile", "while",
 ];
 
 pub mod hir;
@@ -26,7 +26,12 @@ pub fn typecheck<'db>(db: &'db dyn Db, file: SourceFile) -> hir::TranslationUnit
         return hir::TranslationUnit::new(db, Vec::new(), file);
     }
 
-    ensure_no_keyword_as_identifier(db, file, ast.tree(db).root_node(), file.contents(db).as_ref());
+    ensure_no_keyword_as_identifier(
+        db,
+        file,
+        ast.tree(db).root_node(),
+        file.contents(db).as_ref(),
+    );
 
     let tu = ast.root(db);
     let mut cursor = tu.walk();
@@ -166,12 +171,7 @@ fn function_definition<'db>(
 
 /// C keywords may not be used as identifiers (e.g. `int return = 4;`).
 /// Only flag identifiers used as names (declarator or expression), not type names like `void` in `main(void)`.
-fn ensure_no_keyword_as_identifier(
-    db: &dyn Db,
-    file: SourceFile,
-    root: TsNode,
-    src: &str,
-) {
+fn ensure_no_keyword_as_identifier(db: &dyn Db, file: SourceFile, root: TsNode, src: &str) {
     let lang = Language::new(tree_sitter_c::LANGUAGE);
     let query = tree_sitter::Query::new(&lang, "(identifier) @id").unwrap();
     let mut cursor = tree_sitter::QueryCursor::new();
@@ -337,7 +337,9 @@ mod tests {
         let _ = typecheck(&db, file);
         let diags = typecheck::accumulated::<Diagnostics>(&db, file);
         assert!(
-            diags.iter().any(|d| d.message.contains("keyword") && d.message.contains("identifier")),
+            diags
+                .iter()
+                .any(|d| d.message.contains("keyword") && d.message.contains("identifier")),
             "expected keyword-as-identifier diagnostic, got {diags:?}"
         );
     }

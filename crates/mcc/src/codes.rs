@@ -25,7 +25,11 @@ impl ErrorCode {
 }
 impl std::fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ErrorCode { severity, description, .. } = self;
+        let ErrorCode {
+            severity,
+            description,
+            ..
+        } = self;
         let path = self.path();
         write!(f, "{severity:?}[{path}]: {description}")
     }
@@ -45,9 +49,7 @@ pub const ALL: &[ErrorCode] = &[
     type_check::unimplemented,
 ];
 /// The error codes definition, as YAML.
-pub const DEFINITION: &str = include_str!(
-    concat!(env!("CARGO_MANIFEST_DIR"), "/error-codes.yaml")
-);
+pub const DEFINITION: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/error-codes.yaml"));
 pub mod parse {
     use super::*;
     ///Invalid or unsupported type specifier.
